@@ -10,14 +10,14 @@ export default function RoutineBuilder() {
   // ================= ESTADO DE ALERTAS UI =================
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  // NUEVO: Estado para almacenar las plantillas que vienen del backend
+  // Estado para almacenar las plantillas que vienen del backend o caché
   const [templates, setTemplates] = useState([]);
 
   const [routine, setRoutine] = useState({
     title: '',
     day_of_week: 'Lunes',
     student_id: parseInt(studentId),
-    is_template: false, // NUEVO: Para saber si queremos guardar esto como plantilla
+    is_template: false, 
     exercises: [] 
   });
 
@@ -27,17 +27,28 @@ export default function RoutineBuilder() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  // Cargar las plantillas al entrar a la pantalla
+  // Lógica de Caché Optimista para las plantillas
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
         const response = await API.get('/routines/trainer/templates');
         setTemplates(response.data);
+        // Actualizamos la caché compartida para mantener todo el sistema sincronizado
+        sessionStorage.setItem('trainer_templates', JSON.stringify(response.data));
       } catch (err) {
         console.error('No se pudieron cargar las plantillas', err);
       }
     };
-    fetchTemplates();
+
+    // 1. Buscamos en la caché primero (súper rápido)
+    const cachedTemplates = sessionStorage.getItem('trainer_templates');
+    
+    if (cachedTemplates) {
+      setTemplates(JSON.parse(cachedTemplates));
+      fetchTemplates(); // 2. Actualizamos en segundo plano (invisible para el usuario)
+    } else {
+      fetchTemplates(); // 3. Si no hay caché, cargamos normal
+    }
   }, []);
 
   // Función para clonar una plantilla en la rutina actual
@@ -100,6 +111,9 @@ export default function RoutineBuilder() {
       await API.post('/routines/', routine);
       showToast('¡Rutina guardada y asignada con éxito!', 'success');
       
+      // Limpiamos la caché de los alumnos/rutinas del dashboard para forzar que se actualicen al volver
+      sessionStorage.removeItem('trainer_students'); 
+      
       // Retrasamos la navegación un poquito para que el usuario alcance a leer el Toast verde
       setTimeout(() => {
         navigate(`/trainer/student/${studentId}`); 
@@ -114,7 +128,7 @@ export default function RoutineBuilder() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-12 relative">
       
-      {/* 1. TOAST NOTIFICATION (Reemplaza a los alerts y errores estáticos) */}
+      {/* 1. TOAST NOTIFICATION */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'

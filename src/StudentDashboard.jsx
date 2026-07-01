@@ -4,7 +4,7 @@ import API from './api';
 
 // ================= COMPONENTES OPTIMIZADOS =================
 
-// 1. Reproductor de YouTube "Perezoso" (Ahorra 90% de RAM y Datos Móviles)
+// 1. Reproductor de YouTube "Perezoso"
 const LazyYouTube = ({ rawUrl }) => {
   const [showVideo, setShowVideo] = useState(false);
   
@@ -52,7 +52,7 @@ const ExerciseTimer = ({ restTimeStr }) => {
       timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     } else if (isTimerRunning && timeLeft === 0) {
       setIsTimerRunning(false);
-      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]); // Doble vibración al terminar
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]); 
     }
     return () => clearInterval(timer);
   }, [isTimerRunning, timeLeft]);
@@ -68,7 +68,6 @@ const ExerciseTimer = ({ restTimeStr }) => {
 
   return (
     <button onClick={startTimer} className="relative py-2 rounded-lg border text-center flex-1 bg-slate-900 border-slate-700 overflow-hidden active:scale-95 transition-transform">
-      {/* Barra de progreso de fondo */}
       {isTimerRunning && (
         <div className="absolute top-0 left-0 h-full bg-amber-500/20 transition-all duration-1000 linear" style={{ width: `${progressPercentage}%` }}></div>
       )}
@@ -97,13 +96,13 @@ export default function StudentDashboard() {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   const [weights, setWeights] = useState({}); 
-  const [lastWeights, setLastWeights] = useState({}); // NUEVO: Historial del último peso
+  const [lastWeights, setLastWeights] = useState({}); 
   const [isFinished, setIsFinished] = useState(false); 
   const [feedback, setFeedback] = useState('');
   
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-  const wakeLockRef = useRef(null); // Para evitar que la pantalla se apague
+  const wakeLockRef = useRef(null); 
 
   const navigate = useNavigate();
 
@@ -112,24 +111,47 @@ export default function StudentDashboard() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [routinesRes, profileRes] = await Promise.all([
-          API.get('/routines/me'),
-          API.get('/users/me/profile')
-        ]);
-        setRoutines(routinesRes.data);
-        setUserProfile(profileRes.data);
-      } catch (err) {
-        if (err.response?.status === 401) handleLogout();
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  // NUEVO: fetchData ahora acepta un parámetro para el loading
+  const fetchData = async (showLoadingIndicator = true) => {
+    if (showLoadingIndicator) setLoading(true);
+    try {
+      const [routinesRes, profileRes] = await Promise.all([
+        API.get('/routines/me'),
+        API.get('/users/me/profile')
+      ]);
+      setRoutines(routinesRes.data);
+      setUserProfile(profileRes.data);
 
-    // NUEVO: Wake Lock API (Mantiene la pantalla encendida)
+      // GUARDADO EN CACHÉ LIGERO
+      sessionStorage.setItem('student_routines', JSON.stringify(routinesRes.data));
+      sessionStorage.setItem('student_profile', JSON.stringify(profileRes.data));
+
+    } catch (err) {
+      if (err.response?.status === 401) handleLogout();
+    } finally {
+      if (showLoadingIndicator) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // LÓGICA OPTIMISTIC UI: Revisar caché primero
+    const cachedRoutines = sessionStorage.getItem('student_routines');
+    const cachedProfile = sessionStorage.getItem('student_profile');
+
+    if (cachedRoutines && cachedProfile) {
+      // 1. Mostrar caché al instante
+      setRoutines(JSON.parse(cachedRoutines));
+      setUserProfile(JSON.parse(cachedProfile));
+      setLoading(false);
+      
+      // 2. Traer datos frescos en segundo plano
+      fetchData(false);
+    } else {
+      // Sin caché (primera vez), carga normal
+      fetchData(true);
+    }
+
+    // Wake Lock API (Mantiene pantalla encendida)
     const requestWakeLock = async () => {
       try {
         if ('wakeLock' in navigator) {
@@ -147,6 +169,7 @@ export default function StudentDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    sessionStorage.clear(); // NUEVO: Limpiar la caché al salir
     navigate('/');
   };
 
@@ -174,7 +197,6 @@ export default function StudentDashboard() {
       setIsFinished(false);
       setWeights({});
       
-      // NUEVO: Cargar los pesos de la semana pasada para esta rutina
       try {
         const res = await API.get(`/routines/${id}/last-log`);
         setLastWeights(res.data.weights_data || {});
@@ -187,7 +209,7 @@ export default function StudentDashboard() {
       setActiveExerciseIndex(prev => prev + 1);
     } else {
       setIsFinished(true);
-      if ('vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 200]); // Patrón de victoria
+      if ('vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 200]); 
     }
   };
 
@@ -257,6 +279,15 @@ export default function StudentDashboard() {
               <h3 className="text-xl font-bold text-white">Mi Perfil</h3>
               <button onClick={() => setProfileModal({ isOpen: false, newPassword: '' })} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
             </div>
+
+            {userProfile && (
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-6 shadow-inner">
+                <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Mis Datos</span>
+                <p className="text-white font-bold text-sm">{userProfile.full_name}</p>
+                <p className="text-slate-400 text-xs">{userProfile.email}</p>
+              </div>
+            )}
+
             <form onSubmit={handleUpdateProfilePassword} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cambiar mi Contraseña</label>
@@ -333,7 +364,6 @@ export default function StudentDashboard() {
                           onTouchMove={onTouchMove} 
                           onTouchEnd={() => onTouchEnd(totalExercises)}
                         >
-                          {/* NUEVO: Instagram Style Progress Bar */}
                           <div className="flex gap-1.5 mb-5 mt-2">
                             {routine.exercises.map((_, i) => (
                               <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i === activeExerciseIndex ? 'bg-amber-500' : i < activeExerciseIndex ? 'bg-amber-500/40' : 'bg-slate-800'}`}></div>
@@ -353,11 +383,9 @@ export default function StudentDashboard() {
                                 <span className="font-bold text-amber-500 text-lg">{activeExercise.reps}</span>
                               </div>
                               
-                              {/* NUEVO: Componente de Cronómetro Aislado (No re-renderiza la app) */}
                               <ExerciseTimer key={activeExerciseIndex} restTimeStr={activeExercise.rest_time} />
                             </div>
 
-                            {/* NUEVO: Componente YouTube Aislado y Perezoso */}
                             <LazyYouTube rawUrl={activeExercise.youtube_url} />
 
                             {activeExercise.notes && (
@@ -376,7 +404,6 @@ export default function StudentDashboard() {
                                 </div>
                               </div>
                               
-                              {/* NUEVO: Historial Inmediato (Último peso levantado) */}
                               {lastWeights[activeExerciseIndex] && (
                                 <div className="text-right text-[11px] text-slate-400 font-medium">
                                   Última vez levantaste: <span className="text-amber-500/70 font-bold">{lastWeights[activeExerciseIndex]} Kg</span>

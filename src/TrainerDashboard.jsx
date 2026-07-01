@@ -5,6 +5,7 @@ import API from './api';
 export default function TrainerDashboard() {
   const [students, setStudents] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [trainerProfile, setTrainerProfile] = useState(null); 
   const [loading, setLoading] = useState(true);
   
   // Estados de UX y Filtros
@@ -12,7 +13,7 @@ export default function TrainerDashboard() {
   const [statusFilter, setStatusFilter] = useState('all'); 
   const [searchQuery, setSearchQuery] = useState('');
   
-  // ================= NUEVOS ESTADOS DE ALERTAS UI =================
+  // ================= ESTADOS DE ALERTAS UI =================
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', action: null });
 
@@ -42,43 +43,70 @@ export default function TrainerDashboard() {
 
   const navigate = useNavigate();
 
-  // Función Helper para mostrar alertas bonitas
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  // Función Helper para formatear moneda (Guaraníes)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-PY', { style: 'decimal' }).format(amount || 0);
   };
 
-  const fetchData = async () => {
+  // NUEVO: fetchData ahora acepta un parámetro para saber si debe mostrar la pantalla de carga
+  const fetchData = async (showLoadingIndicator = true) => {
+    if (showLoadingIndicator) setLoading(true);
     try {
-      const [studentsRes, templatesRes] = await Promise.all([
+      const [studentsRes, templatesRes, profileRes] = await Promise.all([
         API.get('/users/my-students'),
-        API.get('/routines/trainer/templates')
+        API.get('/routines/trainer/templates'),
+        API.get('/users/me/profile') 
       ]);
+      
       setStudents(studentsRes.data);
       setTemplates(templatesRes.data);
+      setTrainerProfile(profileRes.data);
+
+      // GUARDADO EN CACHÉ LIGERO (sessionStorage)
+      sessionStorage.setItem('trainer_students', JSON.stringify(studentsRes.data));
+      sessionStorage.setItem('trainer_templates', JSON.stringify(templatesRes.data));
+      sessionStorage.setItem('trainer_profile', JSON.stringify(profileRes.data));
+
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
     } finally {
-      setLoading(false);
+      if (showLoadingIndicator) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    // LÓGICA OPTIMISTIC UI: Intentar cargar datos de la caché primero
+    const cachedStudents = sessionStorage.getItem('trainer_students');
+    const cachedTemplates = sessionStorage.getItem('trainer_templates');
+    const cachedProfile = sessionStorage.getItem('trainer_profile');
+
+    if (cachedStudents && cachedTemplates && cachedProfile) {
+      // 1. Mostrar datos de caché INMEDIATAMENTE
+      setStudents(JSON.parse(cachedStudents));
+      setTemplates(JSON.parse(cachedTemplates));
+      setTrainerProfile(JSON.parse(cachedProfile));
+      setLoading(false); 
+      
+      // 2. Traer datos frescos en segundo plano (sin mostrar pantalla de carga)
+      fetchData(false); 
+    } else {
+      // Si no hay caché, es la primera vez que entra, mostramos la carga normal
+      fetchData(true);
+    }
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    // NUEVO: Limpiar la caché al salir por seguridad
+    sessionStorage.clear(); 
     navigate('/');
   };
 
-  // --- LÓGICA DE ALUMNOS ---
   const handleCreateStudent = async (e) => {
     e.preventDefault();
     setIsCreating(true);
@@ -87,7 +115,8 @@ export default function TrainerDashboard() {
       setNewStudent({ email: '', full_name: '', password: '', role: 'student' }); 
       setIsCreateModalOpen(false);
       showToast("Atleta creado con éxito", "success");
-      fetchData(); 
+      // Forzamos actualización de caché sin pantalla de carga
+      fetchData(false); 
     } catch (err) {
       showToast(err.response?.data?.detail || "Error al crear alumno", "error");
     } finally {
@@ -99,7 +128,7 @@ export default function TrainerDashboard() {
     const formattedDate = student.expiration_date ? student.expiration_date.split('T')[0] : '';
     setManageModal({ isOpen: true, student, activeSubTab: 'edit', history: [] });
     setStudentPassword(''); 
-    setPaymentCurrentPage(1); // Reseteamos la paginación al abrir el modal
+    setPaymentCurrentPage(1); 
     setEditFields({
       is_active: student.is_active,
       expiration_date: formattedDate,
@@ -125,7 +154,7 @@ export default function TrainerDashboard() {
       });
       setManageModal({ isOpen: false, student: null, activeSubTab: 'edit', history: [] });
       showToast("Datos actualizados con éxito", "success");
-      fetchData();
+      fetchData(false);
     } catch (err) {
       showToast("Error al guardar cambios", "error");
     } finally {
@@ -152,9 +181,7 @@ export default function TrainerDashboard() {
     e.preventDefault();
     setIsPaying(true);
     try {
-      // Nos aseguramos de enviar un número sin puntos para el backend
       const amountToSend = typeof paymentModal.amount === 'string' ? parseFloat(paymentModal.amount.replace(/\./g, '')) : paymentModal.amount;
-      
       await API.post(`/users/students/${paymentModal.student.id}/pay`, {
         amount: amountToSend,
         add_months: 1,
@@ -162,7 +189,7 @@ export default function TrainerDashboard() {
       });
       setPaymentModal({ isOpen: false, student: null, amount: 0 });
       showToast("Pago registrado con éxito", "success");
-      fetchData();
+      fetchData(false);
     } catch (err) {
       showToast("Error al registrar el pago", "error");
     } finally {
@@ -185,7 +212,6 @@ export default function TrainerDashboard() {
     }
   };
 
-  // --- LÓGICA DE CONFIRMACIÓN PARA BORRAR PLANTILLA ---
   const handleDeleteTemplateClick = (id) => {
     setConfirmDialog({
       isOpen: true,
@@ -195,7 +221,7 @@ export default function TrainerDashboard() {
         try {
           await API.delete(`/routines/${id}`);
           showToast("Plantilla eliminada correctamente", "success");
-          fetchData();
+          fetchData(false);
         } catch (err) {
           showToast("Error al eliminar la plantilla", "error");
         } finally {
@@ -225,7 +251,7 @@ export default function TrainerDashboard() {
   };
 
   const filteredStudents = useMemo(() => {
-    setStudentCurrentPage(1); // Reset paginación al filtrar
+    setStudentCurrentPage(1); 
     return students.filter(s => {
       const matchesSearch = s.full_name.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
@@ -240,7 +266,6 @@ export default function TrainerDashboard() {
     });
   }, [students, searchQuery, statusFilter]);
 
-  // Lógica de paginación para estudiantes
   const indexOfLastStudent = studentCurrentPage * STUDENTS_PER_PAGE;
   const indexOfFirstStudent = indexOfLastStudent - STUDENTS_PER_PAGE;
   const currentStudents = filteredStudents.slice(indexOfFirstStudent, indexOfLastStudent);
@@ -248,7 +273,6 @@ export default function TrainerDashboard() {
 
   const paginateStudents = (pageNumber) => setStudentCurrentPage(pageNumber);
 
-  // Lógica de paginación para pagos
   const indexOfLastPayment = paymentCurrentPage * PAYMENTS_PER_PAGE;
   const indexOfFirstPayment = indexOfLastPayment - PAYMENTS_PER_PAGE;
   const currentPayments = manageModal.history.slice(indexOfFirstPayment, indexOfLastPayment);
@@ -258,8 +282,6 @@ export default function TrainerDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans relative pb-10">
-      
-      {/* ================= COMPONENTES GLOBALES DE UI ================= */}
       
       {/* 1. TOAST NOTIFICATION */}
       {toast.show && (
@@ -290,8 +312,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* ================= MODALES DE GESTIÓN ================= */}
-
       {/* MODAL MI PERFIL */}
       {profileModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -300,6 +320,16 @@ export default function TrainerDashboard() {
               <h3 className="text-xl font-bold text-white">Mi Perfil</h3>
               <button onClick={() => setProfileModal({ isOpen: false, newPassword: '' })} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
             </div>
+            
+            {/* NUEVO: Información del Entrenador */}
+            {trainerProfile && (
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-6 shadow-inner">
+                <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Credenciales de Acceso</span>
+                <p className="text-white font-bold text-sm">{trainerProfile.full_name}</p>
+                <p className="text-slate-400 text-xs">{trainerProfile.email}</p>
+              </div>
+            )}
+
             <form onSubmit={handleUpdateProfilePassword} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cambiar mi Contraseña</label>
@@ -403,7 +433,6 @@ export default function TrainerDashboard() {
                           </span>
                         </div>
                       ))}
-                      {/* Controles Paginación Pagos */}
                       {totalPaymentPages > 1 && (
                         <div className="flex justify-center mt-4 gap-2">
                           <button onClick={() => paginatePayments(Math.max(1, paymentCurrentPage - 1))} disabled={paymentCurrentPage === 1} className="px-3 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 disabled:opacity-50 text-xs">Ant</button>
@@ -418,6 +447,14 @@ export default function TrainerDashboard() {
 
               {manageModal.activeSubTab === 'password' && (
                 <form onSubmit={handleUpdateStudentPassword} className="space-y-4 pt-1">
+                  
+                  {/* NUEVO: Información del Alumno */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2 shadow-inner">
+                    <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Cuenta del Alumno</span>
+                    <p className="text-white font-bold text-sm">{manageModal.student.full_name}</p>
+                    <p className="text-slate-400 text-xs">{manageModal.student.email}</p>
+                  </div>
+
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-4 text-xs text-amber-500">
                     Cambia la contraseña de este alumno si la ha olvidado. Él usará la nueva contraseña para iniciar sesión.
                   </div>
@@ -567,7 +604,6 @@ export default function TrainerDashboard() {
                     );
                   })}
                 </div>
-                {/* Controles Paginación Estudiantes */}
                 {totalStudentPages > 1 && (
                   <div className="flex justify-center mt-8 gap-2">
                     <button onClick={() => paginateStudents(Math.max(1, studentCurrentPage - 1))} disabled={studentCurrentPage === 1} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-50">Anterior</button>
@@ -583,7 +619,6 @@ export default function TrainerDashboard() {
             )}
           </div>
         ) : (
-          /* ================= VISTA DE PLANTILLAS ================= */
           <div className="max-w-4xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {templates.map((template) => (

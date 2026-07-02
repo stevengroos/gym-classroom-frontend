@@ -5,6 +5,7 @@ import RoutineBuilder from './RoutineBuilder';
 import StudentRoutines from './StudentRoutines';
 import RoutineEditor from './RoutineEditor';
 import StudentDashboard from './StudentDashboard'; // <-- Importamos el panel del alumno
+import SuperAdminDashboard from './SuperAdminDashboard';
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
         <Route path="/trainer/routine/:studentId" element={<RoutineBuilder />} />
         <Route path="/trainer/student/:studentId" element={<StudentRoutines />} />
         <Route path="/trainer/routine-edit/:routineId" element={<RoutineEditor />} />
-        
+        <Route path="/superadmin" element={<SuperAdminDashboard />} />
         {/* Ruta de Alumno */}
         <Route path="/student" element={<StudentDashboard />} /> {/* <-- Lo conectamos aquí */}
         

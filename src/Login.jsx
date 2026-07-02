@@ -23,7 +23,9 @@ export default function Login() {
     const role = localStorage.getItem('role');
 
     if (token && role) {
-      if (role === 'trainer' || role === 'superadmin') {
+      if (role === 'superadmin') {
+        navigate('/superadmin');
+      } else if (role === 'trainer') {
         navigate('/trainer');
       } else {
         navigate('/student');
@@ -59,7 +61,9 @@ export default function Login() {
       localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('role', response.data.role);
 
-      if (response.data.role === 'trainer' || response.data.role === 'superadmin') {
+      if (response.data.role === 'superadmin') {
+        navigate('/superadmin');
+      } else if (response.data.role === 'trainer') {
         navigate('/trainer');
       } else {
         navigate('/student');

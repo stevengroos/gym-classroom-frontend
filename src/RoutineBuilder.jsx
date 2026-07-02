@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from './api';
-// NUEVO: Importamos los íconos de Lucide
 import { AlertTriangle, CheckCircle, ArrowLeft, Zap, Plus, Trash2, Save } from 'lucide-react';
 
 export default function RoutineBuilder() {
@@ -9,58 +8,52 @@ export default function RoutineBuilder() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  // ================= ESTADO DE ALERTAS UI =================
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  // NUEVO: Detectamos si estamos en modo "Crear Plantilla Maestra" (cuando no hay un ID de alumno real)
+  const isTemplateMode = studentId === 'template' || !studentId;
 
-  // Estado para almacenar las plantillas que vienen del backend o caché
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [templates, setTemplates] = useState([]);
 
+  // Inicializamos el estado base dependiendo de si es plantilla o rutina de alumno
   const [routine, setRoutine] = useState({
     title: '',
     day_of_week: 'Lunes',
-    student_id: parseInt(studentId),
-    is_template: false, 
+    student_id: isTemplateMode ? null : parseInt(studentId),
+    is_template: isTemplateMode ? true : false, 
     exercises: [] 
   });
 
-  // Función Helper para mostrar alertas bonitas
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  // Lógica de Caché Optimista para las plantillas
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
         const response = await API.get('/routines/trainer/templates');
         setTemplates(response.data);
-        // Actualizamos la caché compartida para mantener todo el sistema sincronizado
         sessionStorage.setItem('trainer_templates', JSON.stringify(response.data));
       } catch (err) {
         console.error('No se pudieron cargar las plantillas', err);
       }
     };
 
-    // 1. Buscamos en la caché primero (súper rápido)
     const cachedTemplates = sessionStorage.getItem('trainer_templates');
-    
     if (cachedTemplates) {
       setTemplates(JSON.parse(cachedTemplates));
-      fetchTemplates(); // 2. Actualizamos en segundo plano (invisible para el usuario)
+      fetchTemplates(); 
     } else {
-      fetchTemplates(); // 3. Si no hay caché, cargamos normal
+      fetchTemplates(); 
     }
   }, []);
 
-  // Función para clonar una plantilla en la rutina actual
   const handleLoadTemplate = (e) => {
     const templateId = parseInt(e.target.value);
     if (!templateId) return;
 
     const selectedTemplate = templates.find(t => t.id === templateId);
     if (selectedTemplate) {
-      // Copiamos los ejercicios de forma limpia
       const copiedExercises = selectedTemplate.exercises.map(ex => ({
         name: ex.name,
         sets: ex.sets,
@@ -103,7 +96,7 @@ export default function RoutineBuilder() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (routine.exercises.length === 0) {
-      showToast('Debes agregar al menos un ejercicio a la rutina.', 'error');
+      showToast('Debes agregar al menos un ejercicio.', 'error');
       return;
     }
 
@@ -111,18 +104,27 @@ export default function RoutineBuilder() {
 
     try {
       await API.post('/routines/', routine);
-      showToast('¡Rutina guardada y asignada con éxito!', 'success');
       
-      // Limpiamos la caché de los alumnos/rutinas del dashboard para forzar que se actualicen al volver
+      // Mensaje dinámico
+      if (isTemplateMode) {
+        showToast('¡Plantilla maestra guardada con éxito!', 'success');
+      } else {
+        showToast('¡Rutina asignada con éxito!', 'success');
+      }
+      
       sessionStorage.removeItem('trainer_students'); 
+      sessionStorage.removeItem('trainer_templates'); // Forzamos recarga de plantillas
       
-      // Retrasamos la navegación un poquito para que el usuario alcance a leer el Toast verde
       setTimeout(() => {
-        navigate(`/trainer/student/${studentId}`); 
+        if (isTemplateMode) {
+          navigate('/trainer'); // Volvemos al dashboard central
+        } else {
+          navigate(`/trainer/student/${studentId}`); // Volvemos al perfil del alumno
+        }
       }, 1500);
       
     } catch (err) {
-      showToast('Error al guardar la rutina. Revisa los datos.', 'error');
+      showToast('Error al guardar. Revisa los datos.', 'error');
       setLoading(false);
     }
   };
@@ -130,7 +132,6 @@ export default function RoutineBuilder() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-12 relative">
       
-      {/* 1. TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
@@ -144,13 +145,15 @@ export default function RoutineBuilder() {
         <button onClick={() => navigate(-1)} className="text-amber-500 mr-4 font-bold flex items-center gap-1 transition-colors hover:text-amber-400">
           <ArrowLeft className="w-4 h-4" /> Volver
         </button>
-        <h1 className="text-xl font-bold text-white">Asignar Nueva Rutina</h1>
+        <h1 className="text-xl font-bold text-white">
+          {isTemplateMode ? 'Crear Plantilla Maestra' : 'Asignar Nueva Rutina'}
+        </h1>
       </nav>
 
       <main className="max-w-3xl mx-auto p-4 md:p-6 mt-4">
         
-        {/* Selector de Plantillas Rápidas */}
-        {templates.length > 0 && (
+        {/* Solo mostramos la Carga Rápida si le estamos asignando una rutina a un alumno */}
+        {templates.length > 0 && !isTemplateMode && (
           <div className="mb-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5">
             <h2 className="text-sm font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Zap className="w-4 h-4" /> Carga Rápida
@@ -169,7 +172,6 @@ export default function RoutineBuilder() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Datos del Día */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-lg font-semibold mb-4 text-white">Configuración del Día</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -195,7 +197,6 @@ export default function RoutineBuilder() {
             </div>
           </div>
 
-          {/* Lista de Ejercicios */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white flex justify-between items-center">
               Ejercicios ({routine.exercises.length})
@@ -239,22 +240,24 @@ export default function RoutineBuilder() {
             ))}
           </div>
 
-          {/* Opción para guardar esto como plantilla futura */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center gap-3">
-            <input 
-              type="checkbox" 
-              id="saveTemplate"
-              checked={routine.is_template}
-              onChange={(e) => setRoutine({...routine, is_template: e.target.checked})}
-              className="w-5 h-5 accent-amber-500 rounded cursor-pointer"
-            />
-            <label htmlFor="saveTemplate" className="text-slate-300 font-medium cursor-pointer">
-              Guardar también como <span className="text-amber-500 font-bold">Plantilla</span> para usarla con otros alumnos
-            </label>
-          </div>
+          {/* Ocultamos el checkbox de guardar como plantilla si YA estamos creando una plantilla */}
+          {!isTemplateMode && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                id="saveTemplate"
+                checked={routine.is_template}
+                onChange={(e) => setRoutine({...routine, is_template: e.target.checked})}
+                className="w-5 h-5 accent-amber-500 rounded cursor-pointer"
+              />
+              <label htmlFor="saveTemplate" className="text-slate-300 font-medium cursor-pointer">
+                Guardar también como <span className="text-amber-500 font-bold">Plantilla</span> para usarla con otros alumnos
+              </label>
+            </div>
+          )}
 
           <button type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/50 text-slate-950 font-bold py-4 rounded-xl text-lg shadow-lg shadow-amber-500/20 transition-colors flex justify-center items-center gap-2">
-            {loading ? 'Guardando...' : <><Save className="w-5 h-5" /> Asignar Rutina al Alumno</>}
+            {loading ? 'Guardando...' : <><Save className="w-5 h-5" /> {isTemplateMode ? 'Guardar Plantilla' : 'Asignar Rutina al Alumno'}</>}
           </button>
         </form>
       </main>

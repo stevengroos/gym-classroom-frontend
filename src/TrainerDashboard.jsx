@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from './api';
-// IMPORTAMOS LOS ÍCONOS DE LUCIDE
 import { 
   Users, FileText, Search, UserPlus, Dumbbell, Settings, 
   Wallet, MessageCircle, Pencil, AlertTriangle, CheckCircle, 
-  X, LogOut, ChevronLeft, ChevronRight 
+  X, LogOut, ChevronLeft, ChevronRight, Plus 
 } from 'lucide-react';
 
 export default function TrainerDashboard() {
@@ -276,7 +275,6 @@ export default function TrainerDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans relative pb-10">
       
-      {/* 1. TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
@@ -286,7 +284,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* 2. MODAL DE CONFIRMACIÓN */}
       {confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-fade-in-up text-center">
@@ -305,7 +302,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* MODAL MI PERFIL */}
       {profileModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-fade-in-up">
@@ -341,7 +337,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* MODAL CREAR ALUMNO */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 pb-0 sm:pb-4">
           <div className="bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up">
@@ -374,7 +369,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* MODAL DE FICHA TÉCNICA */}
       {manageModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
@@ -479,7 +473,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* MODAL DE COBRO RÁPIDO */}
       {paymentModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -510,7 +503,6 @@ export default function TrainerDashboard() {
         </div>
       )}
 
-      {/* ================= NAVBAR PRINCIPAL ================= */}
       <nav className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <div>
           <h1 className="text-lg md:text-xl font-extrabold text-amber-500 tracking-tight leading-none">GYM CLASSROOM</h1>
@@ -528,7 +520,6 @@ export default function TrainerDashboard() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 mt-2">
         
-        {/* PESTAÑAS DE NAVEGACIÓN */}
         <div className="flex border-b border-slate-800 mb-6 overflow-x-auto hide-scrollbar">
           <button onClick={() => setActiveTab('students')} className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${activeTab === 'students' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400'}`}>
             <Users className="w-5 h-5" /> Directorio de Alumnos ({students.length})
@@ -625,26 +616,44 @@ export default function TrainerDashboard() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
+            {/* NUEVO: Cabecera con botón de crear plantilla */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+              <p className="text-slate-400 text-sm">Crea entrenamientos base para asignarlos rápidamente a cualquier alumno.</p>
+              <button 
+                onClick={() => navigate('/trainer/routine/template')}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 px-6 rounded-xl shadow-lg shadow-amber-500/10 transition-colors flex justify-center items-center gap-2 whitespace-nowrap w-full sm:w-auto"
+              >
+                <Plus className="w-5 h-5" /> Nueva Plantilla
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {templates.map((template) => (
-                <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-amber-500/30 transition-colors flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <span className="text-xs font-bold bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md uppercase tracking-wider">{template.day_of_week}</span>
-                        <h3 className="font-bold text-xl text-white mt-2">{template.title}</h3>
-                      </div>
-                    </div>
-                    <p className="text-slate-400 text-sm mb-6 border-b border-slate-800 pb-4">Contiene <strong className="text-slate-200">{template.exercises.length}</strong> ejercicios preconfigurados.</p>
-                  </div>
-                  <div className="flex gap-2 mt-auto">
-                    <button onClick={() => navigate(`/trainer/routine-edit/${template.id}`, { state: { routine: template, studentId: null } })} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-xl flex justify-center items-center gap-2">
-                      <Pencil className="w-4 h-4" /> Editar
-                    </button>
-                    <button onClick={() => handleDeleteTemplateClick(template.id)} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 text-sm font-semibold py-2.5 px-4 rounded-xl">Eliminar</button>
-                  </div>
+              {templates.length === 0 && !loading ? (
+                <div className="col-span-1 sm:col-span-2 bg-slate-900 border border-slate-800 border-dashed rounded-2xl p-10 text-center flex flex-col items-center">
+                  <FileText className="w-12 h-12 text-slate-700 mb-4" />
+                  <p className="text-slate-400">Aún no tienes plantillas maestras creadas.</p>
                 </div>
-              ))}
+              ) : (
+                templates.map((template) => (
+                  <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-amber-500/30 transition-colors flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <span className="text-xs font-bold bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md uppercase tracking-wider">{template.day_of_week}</span>
+                          <h3 className="font-bold text-xl text-white mt-2">{template.title}</h3>
+                        </div>
+                      </div>
+                      <p className="text-slate-400 text-sm mb-6 border-b border-slate-800 pb-4">Contiene <strong className="text-slate-200">{template.exercises.length}</strong> ejercicios preconfigurados.</p>
+                    </div>
+                    <div className="flex gap-2 mt-auto">
+                      <button onClick={() => navigate(`/trainer/routine-edit/${template.id}`, { state: { routine: template, studentId: null } })} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-xl flex justify-center items-center gap-2">
+                        <Pencil className="w-4 h-4" /> Editar
+                      </button>
+                      <button onClick={() => handleDeleteTemplateClick(template.id)} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 text-sm font-semibold py-2.5 px-4 rounded-xl">Eliminar</button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

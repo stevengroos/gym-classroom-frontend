@@ -424,18 +424,22 @@ export default function TrainerDashboard() {
                     <label className="block text-xs text-slate-400 uppercase font-black mb-1">Teléfono de WhatsApp</label>
                     <input type="text" placeholder="Con código de país (ej: 595981...)" value={editFields.phone} onChange={(e) => setEditFields({...editFields, phone: e.target.value.replace(/\D/g,'')})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
+                  
+                  {/* SOLUCIÓN RESPONSIVA: 1 columna en móvil, 2 en PC. Y alineación perfecta abajo */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col justify-end">
                       <label className="block text-xs text-slate-400 uppercase font-black mb-1">Vencimiento Manual</label>
                       <input type="date" value={editFields.expiration_date} onChange={(e) => setEditFields({...editFields, expiration_date: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none text-center" />
                     </div>
-                    <div>
+                    <div className="flex flex-col justify-end">
                       <label className="block text-xs text-slate-400 uppercase font-black mb-1">Cuota (Gs.)</label>
                       <input type="text" value={editFields.default_price} onChange={(e) => setEditFields({...editFields, default_price: e.target.value.replace(/\D/g,'')})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none" />
                     </div>
                   </div>
                   
-                  <button type="submit" disabled={isSavingManagement} className="w-full bg-amber-500 text-slate-950 font-bold py-3 rounded-xl mt-4">{isSavingManagement ? 'Guardando...' : 'Guardar Cambios'}</button>
+                  <button type="submit" disabled={isSavingManagement} className="w-full bg-amber-500 text-slate-950 font-bold py-3.5 rounded-xl mt-4 active:scale-[0.98] transition-transform">
+                    {isSavingManagement ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
                 </form>
               )}
 

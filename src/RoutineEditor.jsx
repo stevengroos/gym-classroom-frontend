@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API from './api';
+// NUEVO: Importamos los íconos de Lucide
+import { AlertTriangle, CheckCircle, ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
 
 export default function RoutineEditor() {
   const location = useLocation();
@@ -67,7 +69,7 @@ export default function RoutineEditor() {
       await API.put(`/routines/${routine.id}`, payload);
       showToast('¡Rutina actualizada con éxito!', 'success');
       
-      // NUEVO: Limpiamos cachés relevantes para forzar actualización
+      // Limpiamos cachés relevantes para forzar actualización
       sessionStorage.removeItem('trainer_templates');
       if (studentId) {
          sessionStorage.removeItem(`trainer_student_${studentId}_routines`);
@@ -90,18 +92,20 @@ export default function RoutineEditor() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-12 relative">
       
-      {/* 1. TOAST NOTIFICATION */}
+      {/* 1. TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
         }`}>
-          <span className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</span>
-          <span className="text-sm">{toast.message}</span>
+          {toast.type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+          <span className="text-sm whitespace-nowrap">{toast.message}</span>
         </div>
       )}
 
       <nav className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center sticky top-0 z-30 shadow-md">
-        <button onClick={() => navigate(-1)} className="text-amber-500 mr-4 font-bold">← Cancelar</button>
+        <button onClick={() => navigate(-1)} className="text-amber-500 mr-4 font-bold flex items-center gap-1 transition-colors hover:text-amber-400">
+          <ArrowLeft className="w-4 h-4" /> Cancelar
+        </button>
         <h1 className="text-xl font-bold text-white">Editar: <span className="text-amber-500">{routine.title}</span></h1>
       </nav>
 
@@ -136,8 +140,8 @@ export default function RoutineEditor() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white flex justify-between items-center">
               Ejercicios ({routine.exercises.length})
-              <button type="button" onClick={addExercise} className="text-sm bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg transition-colors font-medium">
-                + Agregar Ejercicio
+              <button type="button" onClick={addExercise} className="text-sm bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg transition-colors font-medium flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Agregar Ejercicio
               </button>
             </h2>
 
@@ -145,9 +149,9 @@ export default function RoutineEditor() {
               <div key={index} className="bg-slate-900 border border-slate-800 rounded-xl p-5 relative group shadow-sm">
                 <button 
                   type="button" onClick={() => removeExercise(index)}
-                  className="absolute top-4 right-4 text-red-500/70 hover:text-red-500 text-sm font-bold transition-colors"
+                  className="absolute top-4 right-4 text-red-500/70 hover:text-red-500 text-sm font-bold transition-colors flex items-center gap-1"
                 >
-                  X Eliminar
+                  <Trash2 className="w-4 h-4" /> Eliminar
                 </button>
                 
                 <div className="grid sm:grid-cols-3 gap-4 mb-4 pr-12">
@@ -176,8 +180,8 @@ export default function RoutineEditor() {
             ))}
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/50 text-slate-950 font-bold py-4 rounded-xl text-lg shadow-lg shadow-amber-500/20 transition-colors">
-            {loading ? 'Guardando cambios...' : 'Guardar Cambios'}
+          <button type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/50 text-slate-950 font-bold py-4 rounded-xl text-lg shadow-lg shadow-amber-500/20 transition-colors flex justify-center items-center gap-2">
+            {loading ? 'Guardando cambios...' : <><Save className="w-5 h-5" /> Guardar Cambios</>}
           </button>
         </form>
       </main>

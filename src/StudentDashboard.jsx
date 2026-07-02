@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from './api';
+// NUEVO: Importamos los íconos de Lucide
+import { 
+  Play, CheckCircle, AlertTriangle, Settings, 
+  LogOut, Coffee, ChevronDown, Trophy, 
+  ArrowLeft, ArrowRight, X 
+} from 'lucide-react';
 
 // ================= COMPONENTES OPTIMIZADOS =================
 
@@ -33,7 +39,7 @@ const LazyYouTube = ({ rawUrl }) => {
       <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} alt="Miniatura de ejercicio" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
       <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 group-hover:bg-transparent transition-colors">
         <div className="bg-red-600 text-white w-14 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/30">
-          <span className="text-xl">▶</span>
+          <Play className="w-6 h-6 fill-current ml-1" />
         </div>
       </div>
     </div>
@@ -111,7 +117,6 @@ export default function StudentDashboard() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  // NUEVO: fetchData ahora acepta un parámetro para el loading
   const fetchData = async (showLoadingIndicator = true) => {
     if (showLoadingIndicator) setLoading(true);
     try {
@@ -122,7 +127,6 @@ export default function StudentDashboard() {
       setRoutines(routinesRes.data);
       setUserProfile(profileRes.data);
 
-      // GUARDADO EN CACHÉ LIGERO
       sessionStorage.setItem('student_routines', JSON.stringify(routinesRes.data));
       sessionStorage.setItem('student_profile', JSON.stringify(profileRes.data));
 
@@ -134,24 +138,18 @@ export default function StudentDashboard() {
   };
 
   useEffect(() => {
-    // LÓGICA OPTIMISTIC UI: Revisar caché primero
     const cachedRoutines = sessionStorage.getItem('student_routines');
     const cachedProfile = sessionStorage.getItem('student_profile');
 
     if (cachedRoutines && cachedProfile) {
-      // 1. Mostrar caché al instante
       setRoutines(JSON.parse(cachedRoutines));
       setUserProfile(JSON.parse(cachedProfile));
       setLoading(false);
-      
-      // 2. Traer datos frescos en segundo plano
       fetchData(false);
     } else {
-      // Sin caché (primera vez), carga normal
       fetchData(true);
     }
 
-    // Wake Lock API (Mantiene pantalla encendida)
     const requestWakeLock = async () => {
       try {
         if ('wakeLock' in navigator) {
@@ -169,7 +167,7 @@ export default function StudentDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    sessionStorage.clear(); // NUEVO: Limpiar la caché al salir
+    sessionStorage.clear(); 
     navigate('/');
   };
 
@@ -263,21 +261,25 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-16 relative">
       
+      {/* TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
         }`}>
-          <span className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</span>
+          {toast.type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
           <span className="text-sm whitespace-nowrap">{toast.message}</span>
         </div>
       )}
 
+      {/* MODAL MI PERFIL */}
       {profileModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-white">Mi Perfil</h3>
-              <button onClick={() => setProfileModal({ isOpen: false, newPassword: '' })} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+              <button onClick={() => setProfileModal({ isOpen: false, newPassword: '' })} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
             </div>
 
             {userProfile && (
@@ -307,8 +309,12 @@ export default function StudentDashboard() {
           <p className="text-xs text-slate-400">Atleta: <span className="text-white">{userProfile?.full_name}</span></p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setProfileModal({ isOpen: true, newPassword: '' })} className="text-xl text-slate-300 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center shadow-sm">⚙️</button>
-          <button onClick={handleLogout} className="text-sm text-red-400 hover:text-red-300 transition-colors bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-medium">Salir</button>
+          <button onClick={() => setProfileModal({ isOpen: true, newPassword: '' })} className="text-sm text-slate-300 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center shadow-sm">
+            <Settings className="w-5 h-5" />
+          </button>
+          <button onClick={handleLogout} className="text-sm text-red-400 hover:text-red-300 transition-colors bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+            <LogOut className="w-4 h-4" /> Salir
+          </button>
         </div>
       </header>
 
@@ -316,8 +322,8 @@ export default function StudentDashboard() {
         {loading ? (
           <div className="flex justify-center py-10"><p className="text-amber-500 font-medium animate-pulse">Cargando tu plan...</p></div>
         ) : routines.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center mt-10 shadow-lg">
-            <span className="text-5xl block mb-4">🙌</span>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center mt-10 shadow-lg flex flex-col items-center">
+            <Coffee className="w-12 h-12 text-slate-600 mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">¡Día Libre!</h2>
             <p className="text-slate-400 text-sm">Aún no tienes rutinas asignadas.</p>
           </div>
@@ -340,7 +346,7 @@ export default function StudentDashboard() {
                       <h3 className="text-lg font-bold text-white mt-1">{routine.title}</h3>
                     </div>
                     <div className={`transform transition-transform duration-300 ${isActive ? 'rotate-180' : ''}`}>
-                      <span className="text-amber-500 text-xl">▼</span>
+                      <ChevronDown className="w-6 h-6 text-amber-500" />
                     </div>
                   </button>
 
@@ -350,7 +356,7 @@ export default function StudentDashboard() {
                         <p className="text-slate-400 text-center py-4">No hay ejercicios para este día.</p>
                       ) : isFinished ? (
                         <div className="animate-fade-in bg-slate-950 border border-amber-500/30 rounded-xl p-6 text-center shadow-[0_0_15px_rgba(245,158,11,0.1)]">
-                          <div className="text-5xl mb-4 animate-bounce">🏆</div>
+                          <Trophy className="w-16 h-16 mx-auto mb-4 text-amber-500 animate-bounce" />
                           <h4 className="font-bold text-white text-2xl mb-2">¡Entrenamiento Completado!</h4>
                           <p className="text-slate-400 text-sm mb-6">Buen trabajo. Deja tus notas al profesor.</p>
                           <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Ej: Me costó el press, pero subí peso..." className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 text-sm h-24 outline-none focus:border-amber-500 mb-4 resize-none"></textarea>
@@ -413,9 +419,15 @@ export default function StudentDashboard() {
                           </div>
 
                           <div className="flex justify-between items-center mt-6 gap-3">
-                            <button onClick={prevExercise} disabled={activeExerciseIndex === 0} className={`flex-1 py-4 rounded-xl font-bold transition-colors ${activeExerciseIndex === 0 ? 'bg-slate-800 text-slate-600' : 'bg-slate-800 text-white active:scale-[0.98]'}`}>← Anterior</button>
-                            <button onClick={() => nextExercise(totalExercises)} className="flex-[2] py-4 rounded-xl font-bold transition-transform bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-[0.98] text-lg">
-                              {activeExerciseIndex === totalExercises - 1 ? '¡Terminar! 🏆' : 'Siguiente →'}
+                            <button onClick={prevExercise} disabled={activeExerciseIndex === 0} className={`flex-1 py-4 flex items-center justify-center gap-2 rounded-xl font-bold transition-colors ${activeExerciseIndex === 0 ? 'bg-slate-800 text-slate-600' : 'bg-slate-800 text-white active:scale-[0.98]'}`}>
+                              <ArrowLeft className="w-5 h-5" /> Anterior
+                            </button>
+                            <button onClick={() => nextExercise(totalExercises)} className="flex-[2] py-4 flex items-center justify-center gap-2 rounded-xl font-bold transition-transform bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-[0.98] text-lg">
+                              {activeExerciseIndex === totalExercises - 1 ? (
+                                <>¡Terminar! <Trophy className="w-5 h-5" /></>
+                              ) : (
+                                <>Siguiente <ArrowRight className="w-5 h-5" /></>
+                              )}
                             </button>
                           </div>
                         </div>

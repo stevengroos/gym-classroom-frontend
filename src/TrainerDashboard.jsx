@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from './api';
+// IMPORTAMOS LOS ÍCONOS DE LUCIDE
+import { 
+  Users, FileText, Search, UserPlus, Dumbbell, Settings, 
+  Wallet, MessageCircle, Pencil, AlertTriangle, CheckCircle, 
+  X, LogOut, ChevronLeft, ChevronRight 
+} from 'lucide-react';
 
 export default function TrainerDashboard() {
   const [students, setStudents] = useState([]);
@@ -8,16 +14,13 @@ export default function TrainerDashboard() {
   const [trainerProfile, setTrainerProfile] = useState(null); 
   const [loading, setLoading] = useState(true);
   
-  // Estados de UX y Filtros
   const [activeTab, setActiveTab] = useState('students'); 
   const [statusFilter, setStatusFilter] = useState('all'); 
   const [searchQuery, setSearchQuery] = useState('');
   
-  // ================= ESTADOS DE ALERTAS UI =================
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', action: null });
 
-  // Modales de Gestión
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newStudent, setNewStudent] = useState({ email: '', full_name: '', password: '', role: 'student' });
@@ -35,7 +38,6 @@ export default function TrainerDashboard() {
   const [profileModal, setProfileModal] = useState({ isOpen: false, newPassword: '' });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // Estados de Paginación
   const [studentCurrentPage, setStudentCurrentPage] = useState(1);
   const STUDENTS_PER_PAGE = 8;
   const [paymentCurrentPage, setPaymentCurrentPage] = useState(1);
@@ -52,7 +54,6 @@ export default function TrainerDashboard() {
     return new Intl.NumberFormat('es-PY', { style: 'decimal' }).format(amount || 0);
   };
 
-  // NUEVO: fetchData ahora acepta un parámetro para saber si debe mostrar la pantalla de carga
   const fetchData = async (showLoadingIndicator = true) => {
     if (showLoadingIndicator) setLoading(true);
     try {
@@ -66,7 +67,6 @@ export default function TrainerDashboard() {
       setTemplates(templatesRes.data);
       setTrainerProfile(profileRes.data);
 
-      // GUARDADO EN CACHÉ LIGERO (sessionStorage)
       sessionStorage.setItem('trainer_students', JSON.stringify(studentsRes.data));
       sessionStorage.setItem('trainer_templates', JSON.stringify(templatesRes.data));
       sessionStorage.setItem('trainer_profile', JSON.stringify(profileRes.data));
@@ -79,22 +79,17 @@ export default function TrainerDashboard() {
   };
 
   useEffect(() => {
-    // LÓGICA OPTIMISTIC UI: Intentar cargar datos de la caché primero
     const cachedStudents = sessionStorage.getItem('trainer_students');
     const cachedTemplates = sessionStorage.getItem('trainer_templates');
     const cachedProfile = sessionStorage.getItem('trainer_profile');
 
     if (cachedStudents && cachedTemplates && cachedProfile) {
-      // 1. Mostrar datos de caché INMEDIATAMENTE
       setStudents(JSON.parse(cachedStudents));
       setTemplates(JSON.parse(cachedTemplates));
       setTrainerProfile(JSON.parse(cachedProfile));
       setLoading(false); 
-      
-      // 2. Traer datos frescos en segundo plano (sin mostrar pantalla de carga)
       fetchData(false); 
     } else {
-      // Si no hay caché, es la primera vez que entra, mostramos la carga normal
       fetchData(true);
     }
   }, []);
@@ -102,7 +97,6 @@ export default function TrainerDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    // NUEVO: Limpiar la caché al salir por seguridad
     sessionStorage.clear(); 
     navigate('/');
   };
@@ -115,7 +109,6 @@ export default function TrainerDashboard() {
       setNewStudent({ email: '', full_name: '', password: '', role: 'student' }); 
       setIsCreateModalOpen(false);
       showToast("Atleta creado con éxito", "success");
-      // Forzamos actualización de caché sin pantalla de carga
       fetchData(false); 
     } catch (err) {
       showToast(err.response?.data?.detail || "Error al crear alumno", "error");
@@ -232,17 +225,17 @@ export default function TrainerDashboard() {
   };
 
   const getPaymentStatus = (expirationDate, isActive) => {
-    if (!isActive) return { label: 'Inactivo', color: 'bg-slate-800 text-slate-400 border-slate-700', dot: 'bg-slate-500', isExpired: false, dateStr: 'Deshabilitado' };
-    if (!expirationDate) return { label: 'Sin plan', color: 'bg-slate-700 text-slate-300 border-slate-600', dot: 'bg-slate-400', isExpired: false, dateStr: 'No registrado' };
+    if (!isActive) return { label: 'Inactivo', color: 'bg-slate-800 text-slate-400 border-slate-700', isExpired: false, dateStr: 'Deshabilitado' };
+    if (!expirationDate) return { label: 'Sin plan', color: 'bg-slate-700 text-slate-300 border-slate-600', isExpired: false, dateStr: 'No registrado' };
     
     const today = new Date();
     const expDate = new Date(expirationDate);
     const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
     const formattedDate = expDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    if (daysLeft < 0) return { label: 'Vencido', color: 'bg-red-500/10 text-red-500 border-red-500/20', dot: 'bg-red-500', isExpired: true, dateStr: formattedDate };
-    if (daysLeft <= 5) return { label: `Vence en ${daysLeft} d`, color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', dot: 'bg-yellow-500', isExpired: false, dateStr: formattedDate };
-    return { label: 'Al día', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', dot: 'bg-emerald-500', isExpired: false, dateStr: formattedDate };
+    if (daysLeft < 0) return { label: 'Vencido', color: 'bg-red-500/10 text-red-500 border-red-500/20', isExpired: true, dateStr: formattedDate };
+    if (daysLeft <= 5) return { label: `Vence en ${daysLeft} d`, color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', isExpired: false, dateStr: formattedDate };
+    return { label: 'Al día', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', isExpired: false, dateStr: formattedDate };
   };
 
   const generateWhatsAppLink = (name) => {
@@ -283,12 +276,12 @@ export default function TrainerDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans relative pb-10">
       
-      {/* 1. TOAST NOTIFICATION */}
+      {/* 1. TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
         }`}>
-          <span className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</span>
+          {toast.type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
           <span className="text-sm">{toast.message}</span>
         </div>
       )}
@@ -297,7 +290,7 @@ export default function TrainerDashboard() {
       {confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-fade-in-up text-center">
-            <div className="text-red-500 text-6xl mb-4 animate-pulse">⚠️</div>
+            <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
             <h3 className="text-2xl font-black text-white mb-2">{confirmDialog.title}</h3>
             <p className="text-sm text-slate-400 mb-8">{confirmDialog.message}</p>
             <div className="flex gap-3">
@@ -318,10 +311,11 @@ export default function TrainerDashboard() {
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-white">Mi Perfil</h3>
-              <button onClick={() => setProfileModal({ isOpen: false, newPassword: '' })} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+              <button onClick={() => setProfileModal({ isOpen: false, newPassword: '' })} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
             </div>
             
-            {/* NUEVO: Información del Entrenador */}
             {trainerProfile && (
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-6 shadow-inner">
                 <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Credenciales de Acceso</span>
@@ -352,8 +346,12 @@ export default function TrainerDashboard() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 pb-0 sm:pb-4">
           <div className="bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">Nuevo Atleta</h3>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <UserPlus className="w-6 h-6 text-amber-500" /> Nuevo Atleta
+              </h3>
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
             </div>
             <form onSubmit={handleCreateStudent} className="space-y-4">
               <div>
@@ -382,16 +380,22 @@ export default function TrainerDashboard() {
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h3 className="text-xl font-bold text-white">Ficha de Control</h3>
-                <p className="text-sm text-amber-500 font-semibold">{manageModal.student.full_name}</p>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-amber-500" /> Ficha de Control
+                </h3>
+                <p className="text-sm text-amber-500 font-semibold mt-1">{manageModal.student.full_name}</p>
               </div>
-              <button onClick={() => setManageModal({ isOpen: false, student: null, activeSubTab: 'edit', history: [] })} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+              <button onClick={() => setManageModal({ isOpen: false, student: null, activeSubTab: 'edit', history: [] })} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
             </div>
 
             <div className="flex border-b border-slate-800 my-4 gap-4 text-xs font-bold uppercase tracking-wider overflow-x-auto hide-scrollbar">
               <button onClick={() => setManageModal({...manageModal, activeSubTab: 'edit'})} className={`pb-2 whitespace-nowrap ${manageModal.activeSubTab === 'edit' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>Datos Generales</button>
               <button onClick={() => setManageModal({...manageModal, activeSubTab: 'history'})} className={`pb-2 whitespace-nowrap ${manageModal.activeSubTab === 'history' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>Pagos ({manageModal.history.length})</button>
-              <button onClick={() => setManageModal({...manageModal, activeSubTab: 'password'})} className={`pb-2 whitespace-nowrap ${manageModal.activeSubTab === 'password' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>🔑 Seguridad</button>
+              <button onClick={() => setManageModal({...manageModal, activeSubTab: 'password'})} className={`pb-2 whitespace-nowrap flex items-center gap-1 ${manageModal.activeSubTab === 'password' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>
+                Seguridad
+              </button>
             </div>
 
             <div className="overflow-y-auto flex-1 pr-1">
@@ -400,8 +404,8 @@ export default function TrainerDashboard() {
                   <div>
                     <label className="block text-xs text-slate-400 uppercase font-black mb-1">Estado del Alumno</label>
                     <select value={editFields.is_active ? 'true' : 'false'} onChange={(e) => setEditFields({...editFields, is_active: e.target.value === 'true'})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none">
-                      <option value="true">🟢 Activo / Permitir acceso</option>
-                      <option value="false">🔴 Inactivo / Bloquear cuenta</option>
+                      <option value="true">Activo / Permitir acceso</option>
+                      <option value="false">Inactivo / Bloquear cuenta</option>
                     </select>
                   </div>
                   <div>
@@ -435,9 +439,9 @@ export default function TrainerDashboard() {
                       ))}
                       {totalPaymentPages > 1 && (
                         <div className="flex justify-center mt-4 gap-2">
-                          <button onClick={() => paginatePayments(Math.max(1, paymentCurrentPage - 1))} disabled={paymentCurrentPage === 1} className="px-3 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 disabled:opacity-50 text-xs">Ant</button>
-                          <span className="text-slate-400 text-xs px-2 py-1">Pág {paymentCurrentPage} de {totalPaymentPages}</span>
-                          <button onClick={() => paginatePayments(Math.min(totalPaymentPages, paymentCurrentPage + 1))} disabled={paymentCurrentPage === totalPaymentPages} className="px-3 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 disabled:opacity-50 text-xs">Sig</button>
+                          <button onClick={() => paginatePayments(Math.max(1, paymentCurrentPage - 1))} disabled={paymentCurrentPage === 1} className="p-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+                          <span className="text-slate-400 text-xs px-2 py-1 flex items-center">Pág {paymentCurrentPage} de {totalPaymentPages}</span>
+                          <button onClick={() => paginatePayments(Math.min(totalPaymentPages, paymentCurrentPage + 1))} disabled={paymentCurrentPage === totalPaymentPages} className="p-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
                         </div>
                       )}
                     </>
@@ -448,7 +452,6 @@ export default function TrainerDashboard() {
               {manageModal.activeSubTab === 'password' && (
                 <form onSubmit={handleUpdateStudentPassword} className="space-y-4 pt-1">
                   
-                  {/* NUEVO: Información del Alumno */}
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2 shadow-inner">
                     <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Cuenta del Alumno</span>
                     <p className="text-white font-bold text-sm">{manageModal.student.full_name}</p>
@@ -480,7 +483,9 @@ export default function TrainerDashboard() {
       {paymentModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-2">Registrar Mensualidad</h3>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-2">
+              <Wallet className="w-6 h-6 text-amber-500" /> Cobrar Mensualidad
+            </h3>
             <p className="text-sm text-slate-400 mb-6">Suma 1 mes a: <span className="text-amber-500 font-semibold">{paymentModal.student.full_name}</span></p>
             <form onSubmit={handleRegisterPayment}>
               <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg overflow-hidden mb-6">
@@ -498,7 +503,7 @@ export default function TrainerDashboard() {
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setPaymentModal({ isOpen: false, student: null, amount: 0 })} className="flex-1 py-3 rounded-xl font-semibold text-slate-300 bg-slate-800">Cancelar</button>
-                <button type="submit" disabled={isPaying} className="flex-1 py-3 rounded-xl font-bold text-slate-950 bg-amber-500">{isPaying ? '...' : 'Registrar'}</button>
+                <button type="submit" disabled={isPaying} className="flex-1 py-3 rounded-xl font-bold text-slate-950 bg-amber-500">{isPaying ? '...' : 'Registrar Pago'}</button>
               </div>
             </form>
           </div>
@@ -512,11 +517,11 @@ export default function TrainerDashboard() {
           <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Centro de Mando</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setProfileModal({ isOpen: true, newPassword: '' })} className="text-sm text-slate-300 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg font-medium">
-            ⚙️ Mi Perfil
+          <button onClick={() => setProfileModal({ isOpen: true, newPassword: '' })} className="text-sm text-slate-300 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-2">
+            <Settings className="w-4 h-4" /> Mi Perfil
           </button>
-          <button onClick={handleLogout} className="text-sm text-red-400 hover:text-red-300 transition-colors bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-medium">
-            Salir
+          <button onClick={handleLogout} className="text-sm text-red-400 hover:text-red-300 transition-colors bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+            <LogOut className="w-4 h-4" /> Salir
           </button>
         </div>
       </nav>
@@ -525,11 +530,11 @@ export default function TrainerDashboard() {
         
         {/* PESTAÑAS DE NAVEGACIÓN */}
         <div className="flex border-b border-slate-800 mb-6 overflow-x-auto hide-scrollbar">
-          <button onClick={() => setActiveTab('students')} className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 ${activeTab === 'students' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400'}`}>
-            👥 Directorio de Alumnos ({students.length})
+          <button onClick={() => setActiveTab('students')} className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${activeTab === 'students' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400'}`}>
+            <Users className="w-5 h-5" /> Directorio de Alumnos ({students.length})
           </button>
-          <button onClick={() => setActiveTab('templates')} className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 ${activeTab === 'templates' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400'}`}>
-            📑 Plantillas Maestras ({templates.length})
+          <button onClick={() => setActiveTab('templates')} className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${activeTab === 'templates' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-400'}`}>
+            <FileText className="w-5 h-5" /> Plantillas Maestras ({templates.length})
           </button>
         </div>
 
@@ -537,7 +542,7 @@ export default function TrainerDashboard() {
           <div>
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mb-6 gap-4">
               <div className="relative w-full sm:max-w-md">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">🔍</span>
+                <Search className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
                   type="text" 
                   placeholder="Buscar atleta por nombre..." 
@@ -550,7 +555,7 @@ export default function TrainerDashboard() {
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 px-6 rounded-xl shadow-lg shadow-amber-500/10 transition-colors flex justify-center items-center gap-2 whitespace-nowrap"
               >
-                <span>➕</span> Nuevo Alumno
+                <UserPlus className="w-5 h-5" /> Nuevo Alumno
               </button>
             </div>
 
@@ -562,7 +567,7 @@ export default function TrainerDashboard() {
             </div>
 
             {loading ? <p className="text-slate-500 py-10 text-center animate-pulse">Cargando base de datos...</p> : 
-              filteredStudents.length === 0 ? <div className="bg-slate-900 p-10 rounded-2xl text-center text-slate-500 border border-slate-800 border-dashed">Ningún alumno coincide con este filtro.</div> : (
+              filteredStudents.length === 0 ? <div className="bg-slate-900 p-10 rounded-2xl text-center text-slate-500 border border-slate-800 border-dashed flex flex-col items-center gap-3"><Users className="w-10 h-10 opacity-50"/>Ningún alumno coincide con este filtro.</div> : (
               <div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {currentStudents.map((student) => {
@@ -583,19 +588,19 @@ export default function TrainerDashboard() {
                         </div>
 
                         <div className="flex flex-col gap-2 mt-auto border-t border-slate-800/60 pt-4">
-                          <button disabled={!student.is_active} onClick={() => navigate(`/trainer/student/${student.id}`)} className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xs font-bold py-2.5 rounded-xl transition-colors flex justify-center items-center gap-1.5">
-                            <span>🏋️</span> Ver Rutinas
+                          <button disabled={!student.is_active} onClick={() => navigate(`/trainer/student/${student.id}`)} className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xs font-bold py-2.5 rounded-xl transition-colors flex justify-center items-center gap-2">
+                            <Dumbbell className="w-4 h-4" /> Ver Rutinas
                           </button>
                           <div className="flex gap-2">
-                            <button onClick={() => openManagementModal(student)} className="flex-1 bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 text-xs font-bold py-2.5 rounded-xl transition-colors">
-                              ⚙️ Ficha
+                            <button onClick={() => openManagementModal(student)} className="flex-1 bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 text-xs font-bold py-2.5 rounded-xl transition-colors flex justify-center items-center gap-1.5">
+                              <Settings className="w-4 h-4" /> Ficha
                             </button>
-                            <button disabled={!student.is_active} onClick={() => setPaymentModal({ isOpen: true, student: student, amount: student.default_price || 0 })} className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-30 text-amber-500 border border-amber-500/20 text-xs font-black py-2.5 rounded-xl transition-colors">
-                              Gs. Cobrar
+                            <button disabled={!student.is_active} onClick={() => setPaymentModal({ isOpen: true, student: student, amount: student.default_price || 0 })} className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-30 text-amber-500 border border-amber-500/20 text-xs font-black py-2.5 rounded-xl transition-colors flex justify-center items-center gap-1.5">
+                              <Wallet className="w-4 h-4" /> Cobrar
                             </button>
                             {status.isExpired && (
                               <a href={generateWhatsAppLink(student.full_name)} target="_blank" rel="noreferrer" className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 p-2.5 rounded-xl transition-colors flex items-center justify-center text-sm" title="Enviar recordatorio por WhatsApp">
-                                💬
+                                <MessageCircle className="w-4 h-4" />
                               </a>
                             )}
                           </div>
@@ -633,7 +638,9 @@ export default function TrainerDashboard() {
                     <p className="text-slate-400 text-sm mb-6 border-b border-slate-800 pb-4">Contiene <strong className="text-slate-200">{template.exercises.length}</strong> ejercicios preconfigurados.</p>
                   </div>
                   <div className="flex gap-2 mt-auto">
-                    <button onClick={() => navigate(`/trainer/routine-edit/${template.id}`, { state: { routine: template, studentId: null } })} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-xl">✏️ Editar</button>
+                    <button onClick={() => navigate(`/trainer/routine-edit/${template.id}`, { state: { routine: template, studentId: null } })} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-xl flex justify-center items-center gap-2">
+                      <Pencil className="w-4 h-4" /> Editar
+                    </button>
                     <button onClick={() => handleDeleteTemplateClick(template.id)} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 text-sm font-semibold py-2.5 px-4 rounded-xl">Eliminar</button>
                   </div>
                 </div>

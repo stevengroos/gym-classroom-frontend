@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from './api';
+// NUEVO: Importamos los íconos de Lucide
+import { 
+  AlertTriangle, CheckCircle, ArrowLeft, Plus, 
+  ClipboardList, Activity, Pencil, Trash2, 
+  Calendar, ArchiveX 
+} from 'lucide-react';
 
 export default function StudentRoutines() {
   const { studentId } = useParams();
@@ -21,7 +27,6 @@ export default function StudentRoutines() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  // NUEVO: fetchData ahora acepta parámetro para mostrar loading o no
   const fetchData = async (showLoadingIndicator = true) => {
     if (showLoadingIndicator) setLoading(true);
     try {
@@ -88,12 +93,12 @@ export default function StudentRoutines() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-12 relative">
       
-      {/* 1. TOAST NOTIFICATION */}
+      {/* 1. TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
         }`}>
-          <span className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</span>
+          {toast.type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
           <span className="text-sm">{toast.message}</span>
         </div>
       )}
@@ -102,7 +107,7 @@ export default function StudentRoutines() {
       {confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-fade-in-up text-center">
-            <div className="text-red-500 text-6xl mb-4 animate-pulse">⚠️</div>
+            <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
             <h3 className="text-2xl font-black text-white mb-2">{confirmDialog.title}</h3>
             <p className="text-sm text-slate-400 mb-8">{confirmDialog.message}</p>
             <div className="flex gap-3">
@@ -120,14 +125,16 @@ export default function StudentRoutines() {
       {/* Barra de navegación */}
       <nav className="bg-slate-900 border-b border-slate-800 px-4 md:px-6 py-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <div className="flex items-center">
-          <button onClick={() => navigate('/trainer')} className="text-amber-500 mr-4 font-bold">← Volver</button>
+          <button onClick={() => navigate('/trainer')} className="text-amber-500 mr-4 font-bold flex items-center gap-1 transition-colors hover:text-amber-400">
+            <ArrowLeft className="w-4 h-4" /> Volver
+          </button>
           <h1 className="text-lg md:text-xl font-bold text-white">Seguimiento</h1>
         </div>
         <button 
           onClick={() => navigate(`/trainer/routine/${studentId}`)}
-          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm shadow-lg shadow-amber-500/20 transition-colors whitespace-nowrap"
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-lg text-sm shadow-lg shadow-amber-500/20 transition-colors whitespace-nowrap flex items-center gap-2"
         >
-          + Nueva Rutina
+          <Plus className="w-4 h-4" /> Nueva Rutina
         </button>
       </nav>
 
@@ -137,23 +144,23 @@ export default function StudentRoutines() {
         <div className="flex border-b border-slate-800 mb-6 overflow-x-auto hide-scrollbar">
           <button
             onClick={() => setActiveTab('routines')}
-            className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 ${
+            className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${
               activeTab === 'routines' 
               ? 'border-amber-500 text-amber-500' 
               : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            📋 Rutinas Asignadas ({routines.length})
+            <ClipboardList className="w-5 h-5" /> Rutinas Asignadas ({routines.length})
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 ${
+            className={`py-3 px-6 font-bold whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${
               activeTab === 'history' 
               ? 'border-amber-500 text-amber-500' 
               : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            🔥 Historial de Entrenamientos ({logs.length})
+            <Activity className="w-5 h-5" /> Historial de Entrenamientos ({logs.length})
           </button>
         </div>
 
@@ -164,7 +171,7 @@ export default function StudentRoutines() {
           // PESTAÑA 1: MOSTRAR LAS RUTINAS ASIGNADAS
           routines.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 border-dashed rounded-2xl p-12 text-center">
-              <span className="text-4xl block mb-4">📋</span>
+              <ClipboardList className="w-16 h-16 text-slate-700 mx-auto mb-4" />
               <p className="text-slate-300 font-medium text-lg">Este alumno aún no tiene rutinas.</p>
               <p className="text-sm text-slate-500 mt-1">Asígnele una rutina nueva con el botón de arriba.</p>
             </div>
@@ -182,15 +189,15 @@ export default function StudentRoutines() {
                     <div className="flex gap-2 w-full sm:w-auto">
                       <button 
                         onClick={() => navigate(`/trainer/routine-edit/${routine.id}`, { state: { routine, studentId } })}
-                        className="flex-1 sm:flex-none text-sm bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl transition-colors font-semibold"
+                        className="flex-1 sm:flex-none text-sm bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl transition-colors font-semibold flex items-center justify-center gap-2"
                       >
-                        ✏️ Editar
+                        <Pencil className="w-4 h-4" /> Editar
                       </button>
                       <button 
                         onClick={() => handleDeleteRoutineClick(routine.id)}
-                        className="flex-1 sm:flex-none text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-4 py-2.5 rounded-xl transition-colors font-semibold"
+                        className="flex-1 sm:flex-none text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-4 py-2.5 rounded-xl transition-colors font-semibold flex items-center justify-center gap-2"
                       >
-                        Eliminar
+                        <Trash2 className="w-4 h-4" /> Eliminar
                       </button>
                     </div>
                   </div>
@@ -230,7 +237,7 @@ export default function StudentRoutines() {
           // PESTAÑA 2: MOSTRAR EL HISTORIAL DE ENTRENAMIENTOS REALIZADOS
           logs.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 border-dashed rounded-2xl p-12 text-center">
-              <span className="text-4xl block mb-4">👻</span>
+              <ArchiveX className="w-16 h-16 text-slate-700 mx-auto mb-4" />
               <p className="text-slate-300 font-medium text-lg">Historial vacío.</p>
               <p className="text-sm text-slate-500 mt-1">Cuando el alumno finalice un entrenamiento en su app, aparecerá aquí.</p>
             </div>
@@ -243,11 +250,12 @@ export default function StudentRoutines() {
                       <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Entrenamiento Completado</span>
                       <h3 className="text-lg font-bold text-white mt-1">{log.routine_title}</h3>
                     </div>
-                    <span className="bg-slate-950 border border-slate-800 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
-                      📅 {log.completed_at}
+                    <span className="bg-slate-950 border border-slate-800 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3 text-amber-500" /> {log.completed_at}
                     </span>
                   </div>
 
+                  {/* Comentarios del alumno */}
                   {log.feedback && (
                     <div className="mb-5 bg-amber-500/10 border-l-2 border-l-amber-500 rounded-r-xl p-4">
                       <span className="text-[10px] text-amber-500 font-black uppercase tracking-wider block mb-1">Notas del Alumno:</span>
@@ -255,6 +263,7 @@ export default function StudentRoutines() {
                     </div>
                   )}
 
+                  {/* Tabla de Pesos Levantados */}
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 md:p-5">
                     <span className="text-xs text-slate-500 font-black uppercase tracking-wider block mb-4">Pesos Registrados:</span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from './api';
+// NUEVO: Importamos los íconos de Lucide
+import { AlertTriangle, Dumbbell, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,12 +13,12 @@ export default function Login() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
   const navigate = useNavigate();
 
-  // NUEVO: Efecto de Auto-Login y Limpieza de Caché
+  // Efecto de Auto-Login y Limpieza de Caché
   useEffect(() => {
     // 1. Limpieza estricta: Si el usuario llegó a la pantalla de Login, limpiamos cualquier caché residual
     sessionStorage.clear();
 
-    // 2. Auto-Login: Si ya tiene un token guardado, lo mandamos directo a su panel para que no tenga que escribir nada
+    // 2. Auto-Login: Si ya tiene un token guardado, lo mandamos directo a su panel
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
 
@@ -76,10 +78,10 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 relative overflow-hidden">
       
-      {/* TOAST NOTIFICATION */}
+      {/* TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all bg-red-500 text-white">
-          <span className="text-xl">⚠️</span>
+          <AlertTriangle className="w-5 h-5" />
           <span className="text-sm whitespace-nowrap">{toast.message}</span>
         </div>
       )}
@@ -92,7 +94,7 @@ export default function Login() {
         {/* Encabezado */}
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
-            <span className="text-3xl">🏋️</span>
+            <Dumbbell className="w-8 h-8 text-amber-500" />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">ATLETA<span className="text-amber-500">HUB</span></h1>
           <p className="text-slate-400 mt-2 text-sm font-medium">Entra a tu zona de entrenamiento</p>
@@ -128,7 +130,7 @@ export default function Login() {
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-amber-500 transition-colors focus:outline-none"
                 tabIndex="-1"
               >
-                {showPassword ? "🙈" : "👁️"}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>

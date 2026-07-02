@@ -1,16 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from './api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // NUEVO: Estado para ver contraseña
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // NUEVO: Sistema de Toast unificado
   const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
   const navigate = useNavigate();
+
+  // NUEVO: Efecto de Auto-Login y Limpieza de Caché
+  useEffect(() => {
+    // 1. Limpieza estricta: Si el usuario llegó a la pantalla de Login, limpiamos cualquier caché residual
+    sessionStorage.clear();
+
+    // 2. Auto-Login: Si ya tiene un token guardado, lo mandamos directo a su panel para que no tenga que escribir nada
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+
+    if (token && role) {
+      if (role === 'trainer' || role === 'superadmin') {
+        navigate('/trainer');
+      } else {
+        navigate('/student');
+      }
+    }
+  }, [navigate]);
 
   const showToast = (message, type = 'error') => {
     setToast({ show: true, message, type });
@@ -67,12 +84,12 @@ export default function Login() {
         </div>
       )}
 
-      {/* EFECTOS DE LUZ DE FONDO (Toque Premium) */}
+      {/* EFECTOS DE LUZ DE FONDO */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 sm:p-10 shadow-2xl relative z-10">
         
-        {/* Encabezado con el nuevo branding */}
+        {/* Encabezado */}
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
             <span className="text-3xl">🏋️</span>
@@ -87,7 +104,7 @@ export default function Login() {
             <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Correo Electrónico</label>
             <input
               type="email"
-              autoFocus // Auto-focus para ahorrar un clic
+              autoFocus 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
@@ -99,13 +116,12 @@ export default function Login() {
             <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Contraseña</label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"} // Alterna el tipo de input
+                type={showPassword ? "text" : "password"} 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full bg-slate-950/50 border border-slate-700 rounded-xl pl-4 pr-12 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-950 transition-all text-sm font-medium tracking-wide"
               />
-              {/* Botón del Ojo */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}

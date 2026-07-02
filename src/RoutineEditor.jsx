@@ -6,11 +6,9 @@ export default function RoutineEditor() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Obtenemos los datos que nos pasaron por estado al hacer clic en "Editar"
   const routineData = location.state?.routine;
-  const studentId = location.state?.studentId; // Puede ser null si es una plantilla
+  const studentId = location.state?.studentId; 
 
-  // Si alguien entra directo a la URL sin pasar por la lista, lo devolvemos
   if (!routineData) {
     navigate('/trainer');
     return null;
@@ -22,7 +20,6 @@ export default function RoutineEditor() {
   // ================= ESTADO DE ALERTAS UI =================
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  // Función Helper para mostrar alertas bonitas
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
@@ -59,11 +56,9 @@ export default function RoutineEditor() {
     setLoading(true);
 
     try {
-      // Armamos el paquete exacto que exige FastAPI (RoutineCreate)
       const payload = {
         title: routine.title,
         day_of_week: routine.day_of_week,
-        // Si studentId existe lo pasamos, si no (plantilla), mandamos null
         student_id: studentId ? parseInt(studentId) : null, 
         is_template: routine.is_template,
         exercises: routine.exercises
@@ -72,12 +67,16 @@ export default function RoutineEditor() {
       await API.put(`/routines/${routine.id}`, payload);
       showToast('¡Rutina actualizada con éxito!', 'success');
       
-      // Retrasamos la navegación para que el usuario pueda leer el mensaje de éxito
+      // NUEVO: Limpiamos cachés relevantes para forzar actualización
+      sessionStorage.removeItem('trainer_templates');
+      if (studentId) {
+         sessionStorage.removeItem(`trainer_student_${studentId}_routines`);
+      }
+      
       setTimeout(() => {
         if (studentId) {
           navigate(`/trainer/student/${studentId}`); 
         } else {
-          // Si editó una plantilla, lo devolvemos al Dashboard principal
           navigate('/trainer');
         }
       }, 1500);
@@ -91,7 +90,7 @@ export default function RoutineEditor() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-12 relative">
       
-      {/* 1. TOAST NOTIFICATION (Reemplaza a los alerts y errores estáticos) */}
+      {/* 1. TOAST NOTIFICATION */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'

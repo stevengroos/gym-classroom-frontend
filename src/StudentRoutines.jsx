@@ -21,8 +21,9 @@ export default function StudentRoutines() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  const fetchData = async () => {
-    setLoading(true);
+  // NUEVO: fetchData ahora acepta parámetro para mostrar loading o no
+  const fetchData = async (showLoadingIndicator = true) => {
+    if (showLoadingIndicator) setLoading(true);
     try {
       const [routinesRes, logsRes] = await Promise.all([
         API.get(`/routines/student/${studentId}`),
@@ -31,18 +32,37 @@ export default function StudentRoutines() {
       
       setRoutines(routinesRes.data);
       setLogs(logsRes.data);
+
+      // GUARDADO EN CACHÉ ESPECÍFICO PARA ESTE ALUMNO
+      sessionStorage.setItem(`trainer_student_${studentId}_routines`, JSON.stringify(routinesRes.data));
+      sessionStorage.setItem(`trainer_student_${studentId}_logs`, JSON.stringify(logsRes.data));
+
     } catch (err) {
       showToast('Error al cargar la información del alumno.', 'error');
     } finally {
-      setLoading(false);
+      if (showLoadingIndicator) setLoading(false);
     }
   };
 
+  // LÓGICA OPTIMISTIC UI
   useEffect(() => {
-    fetchData();
+    const cachedRoutines = sessionStorage.getItem(`trainer_student_${studentId}_routines`);
+    const cachedLogs = sessionStorage.getItem(`trainer_student_${studentId}_logs`);
+
+    if (cachedRoutines && cachedLogs) {
+      // 1. Mostrar caché al instante
+      setRoutines(JSON.parse(cachedRoutines));
+      setLogs(JSON.parse(cachedLogs));
+      setLoading(false);
+      
+      // 2. Traer datos frescos en segundo plano
+      fetchData(false);
+    } else {
+      // Sin caché, carga normal
+      fetchData(true);
+    }
   }, [studentId]);
 
-  // NUEVO: Función para eliminar una rutina asignada
   const handleDeleteRoutineClick = (id) => {
     setConfirmDialog({
       isOpen: true,
@@ -52,7 +72,10 @@ export default function StudentRoutines() {
         try {
           await API.delete(`/routines/${id}`);
           showToast("Rutina eliminada correctamente", "success");
-          fetchData(); // Recargamos la lista
+          
+          // Borramos la caché al eliminar para forzar actualización total
+          sessionStorage.removeItem(`trainer_student_${studentId}_routines`);
+          fetchData(false); 
         } catch (err) {
           showToast("Error al eliminar la rutina", "error");
         } finally {
@@ -64,8 +87,6 @@ export default function StudentRoutines() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-12 relative">
-      
-      {/* ================= COMPONENTES GLOBALES DE UI ================= */}
       
       {/* 1. TOAST NOTIFICATION */}
       {toast.show && (
@@ -227,7 +248,6 @@ export default function StudentRoutines() {
                     </span>
                   </div>
 
-                  {/* Comentarios del alumno */}
                   {log.feedback && (
                     <div className="mb-5 bg-amber-500/10 border-l-2 border-l-amber-500 rounded-r-xl p-4">
                       <span className="text-[10px] text-amber-500 font-black uppercase tracking-wider block mb-1">Notas del Alumno:</span>
@@ -235,7 +255,6 @@ export default function StudentRoutines() {
                     </div>
                   )}
 
-                  {/* Tabla de Pesos Levantados */}
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 md:p-5">
                     <span className="text-xs text-slate-500 font-black uppercase tracking-wider block mb-4">Pesos Registrados:</span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">

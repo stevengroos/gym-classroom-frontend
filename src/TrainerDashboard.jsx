@@ -22,13 +22,15 @@ export default function TrainerDashboard() {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [newStudent, setNewStudent] = useState({ email: '', full_name: '', password: '', role: 'student' });
+  // NUEVO: Agregamos el campo phone al estado inicial
+  const [newStudent, setNewStudent] = useState({ email: '', full_name: '', phone: '', password: '', role: 'student' });
   
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, student: null, amount: 0 });
   const [isPaying, setIsPaying] = useState(false);
 
   const [manageModal, setManageModal] = useState({ isOpen: false, student: null, activeSubTab: 'edit', history: [] });
-  const [editFields, setEditFields] = useState({ is_active: true, expiration_date: '', default_price: 0 });
+  // NUEVO: Agregamos el campo phone a los campos de edición
+  const [editFields, setEditFields] = useState({ is_active: true, expiration_date: '', default_price: 0, phone: '' });
   const [isSavingManagement, setIsSavingManagement] = useState(false);
 
   const [studentPassword, setStudentPassword] = useState('');
@@ -105,7 +107,7 @@ export default function TrainerDashboard() {
     setIsCreating(true);
     try {
       await API.post('/users/students', newStudent);
-      setNewStudent({ email: '', full_name: '', password: '', role: 'student' }); 
+      setNewStudent({ email: '', full_name: '', phone: '', password: '', role: 'student' }); 
       setIsCreateModalOpen(false);
       showToast("Atleta creado con éxito", "success");
       fetchData(false); 
@@ -124,7 +126,8 @@ export default function TrainerDashboard() {
     setEditFields({
       is_active: student.is_active,
       expiration_date: formattedDate,
-      default_price: student.default_price || 0
+      default_price: student.default_price || 0,
+      phone: student.phone || '' // Cargamos el teléfono actual
     });
 
     try {
@@ -142,7 +145,8 @@ export default function TrainerDashboard() {
       await API.put(`/users/students/${manageModal.student.id}/manage`, {
         is_active: editFields.is_active,
         expiration_date: editFields.expiration_date ? `${editFields.expiration_date}T23:59:59Z` : null,
-        default_price: parseFloat(editFields.default_price)
+        default_price: parseFloat(editFields.default_price),
+        phone: editFields.phone // Enviamos el teléfono modificado
       });
       setManageModal({ isOpen: false, student: null, activeSubTab: 'edit', history: [] });
       showToast("Datos actualizados con éxito", "success");
@@ -224,22 +228,31 @@ export default function TrainerDashboard() {
   };
 
   const getPaymentStatus = (expirationDate, isActive) => {
-    if (!isActive) return { label: 'Inactivo', color: 'bg-slate-800 text-slate-400 border-slate-700', isExpired: false, dateStr: 'Deshabilitado' };
-    if (!expirationDate) return { label: 'Sin plan', color: 'bg-slate-700 text-slate-300 border-slate-600', isExpired: false, dateStr: 'No registrado' };
+    if (!isActive) return { label: 'Inactivo', color: 'bg-slate-800 text-slate-400 border-slate-700', isExpired: false, isExpiringSoon: false, dateStr: 'Deshabilitado' };
+    if (!expirationDate) return { label: 'Sin plan', color: 'bg-slate-700 text-slate-300 border-slate-600', isExpired: false, isExpiringSoon: false, dateStr: 'No registrado' };
     
     const today = new Date();
     const expDate = new Date(expirationDate);
     const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
     const formattedDate = expDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    if (daysLeft < 0) return { label: 'Vencido', color: 'bg-red-500/10 text-red-500 border-red-500/20', isExpired: true, dateStr: formattedDate };
-    if (daysLeft <= 5) return { label: `Vence en ${daysLeft} d`, color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', isExpired: false, dateStr: formattedDate };
-    return { label: 'Al día', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', isExpired: false, dateStr: formattedDate };
+    if (daysLeft < 0) return { label: 'Vencido', color: 'bg-red-500/10 text-red-500 border-red-500/20', isExpired: true, isExpiringSoon: false, dateStr: formattedDate };
+    if (daysLeft <= 5) return { label: `Vence en ${daysLeft} d`, color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', isExpired: false, isExpiringSoon: true, dateStr: formattedDate };
+    return { label: 'Al día', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', isExpired: false, isExpiringSoon: false, dateStr: formattedDate };
   };
 
-  const generateWhatsAppLink = (name) => {
-    const text = encodeURIComponent(`¡Hola ${name}! 🏋️ Te escribo para recordarte que tu mensualidad ha vencido. ¡Avisame cuando puedas regularizarlo para seguir entrenando a tope! 💪`);
-    return `https://wa.me/?text=${text}`;
+  // NUEVO: Generador Inteligente de Link de WhatsApp
+  const generateWhatsAppLink = (student, status) => {
+    // Si no hay teléfono registrado, intentamos buscarlo por nombre de contacto general (Fallback)
+    const baseLink = student.phone ? `https://wa.me/${student.phone.replace(/\D/g, '')}` : `https://wa.me/`;
+    
+    let text = '';
+    if (status.isExpired) {
+      text = encodeURIComponent(`¡Hola ${student.full_name}! 🏋️ Espero que estés súper. Te escribo para recordarte que tu mensualidad de entrenamiento ha vencido. ¡Avisame cuando puedas regularizarlo para que no se pause tu plan! 💪`);
+    } else if (status.isExpiringSoon) {
+      text = encodeURIComponent(`¡Hola ${student.full_name}! 🏋️ Paso a recordarte que tu mes de entrenamiento vence pronto (${status.dateStr}). ¡Para que lo tengas en cuenta y sigamos entrenando a tope! 💪`);
+    }
+    return `${baseLink}?text=${text}`;
   };
 
   const filteredStudents = useMemo(() => {
@@ -358,6 +371,11 @@ export default function TrainerDashboard() {
                 <input type="email" required value={newStudent.email} onChange={(e) => setNewStudent({...newStudent, email: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500 transition-colors" />
               </div>
               <div>
+                {/* NUEVO CAMPO: WhatsApp */}
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">WhatsApp (Con código de país, ej: 595981...)</label>
+                <input type="text" placeholder="Opcional" value={newStudent.phone} onChange={(e) => setNewStudent({...newStudent, phone: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500 transition-colors" />
+              </div>
+              <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Contraseña Temporal</label>
                 <input type="password" required value={newStudent.password} onChange={(e) => setNewStudent({...newStudent, password: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500 transition-colors" />
               </div>
@@ -403,13 +421,20 @@ export default function TrainerDashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-400 uppercase font-black mb-1">Fecha de Vencimiento Manual</label>
-                    <input type="date" value={editFields.expiration_date} onChange={(e) => setEditFields({...editFields, expiration_date: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none text-center" />
+                    <label className="block text-xs text-slate-400 uppercase font-black mb-1">Teléfono de WhatsApp</label>
+                    <input type="text" placeholder="Con código de país (ej: 595981...)" value={editFields.phone} onChange={(e) => setEditFields({...editFields, phone: e.target.value.replace(/\D/g,'')})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none" />
                   </div>
-                  <div>
-                    <label className="block text-xs text-slate-400 uppercase font-black mb-1">Monto de Mensualidad (Gs.)</label>
-                    <input type="text" value={editFields.default_price} onChange={(e) => setEditFields({...editFields, default_price: e.target.value.replace(/\D/g,'')})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 uppercase font-black mb-1">Vencimiento Manual</label>
+                      <input type="date" value={editFields.expiration_date} onChange={(e) => setEditFields({...editFields, expiration_date: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none text-center" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 uppercase font-black mb-1">Cuota (Gs.)</label>
+                      <input type="text" value={editFields.default_price} onChange={(e) => setEditFields({...editFields, default_price: e.target.value.replace(/\D/g,'')})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none" />
+                    </div>
                   </div>
+                  
                   <button type="submit" disabled={isSavingManagement} className="w-full bg-amber-500 text-slate-950 font-bold py-3 rounded-xl mt-4">{isSavingManagement ? 'Guardando...' : 'Guardar Cambios'}</button>
                 </form>
               )}
@@ -505,7 +530,7 @@ export default function TrainerDashboard() {
 
       <nav className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <div>
-          <h1 className="text-lg md:text-xl font-extrabold text-amber-500 tracking-tight leading-none">GYM CLASSROOM</h1>
+          <h1 className="text-lg md:text-xl font-extrabold text-amber-500 tracking-tight leading-none">ATLETAHUB</h1>
           <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Centro de Mando</p>
         </div>
         <div className="flex gap-2">
@@ -573,7 +598,7 @@ export default function TrainerDashboard() {
                             </span>
                           </div>
                           <p className="text-xs text-slate-400 font-medium mb-4 flex items-center gap-1">
-                            <span className="text-slate-500">Vencimiento:</span> 
+                            <span className="text-slate-500">Vence:</span> 
                             <span className={status.isExpired ? "text-red-400 font-bold" : "text-slate-200"}>{status.dateStr}</span>
                           </p>
                         </div>
@@ -589,8 +614,9 @@ export default function TrainerDashboard() {
                             <button disabled={!student.is_active} onClick={() => setPaymentModal({ isOpen: true, student: student, amount: student.default_price || 0 })} className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-30 text-amber-500 border border-amber-500/20 text-xs font-black py-2.5 rounded-xl transition-colors flex justify-center items-center gap-1.5">
                               <Wallet className="w-4 h-4" /> Cobrar
                             </button>
-                            {status.isExpired && (
-                              <a href={generateWhatsAppLink(student.full_name)} target="_blank" rel="noreferrer" className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 p-2.5 rounded-xl transition-colors flex items-center justify-center text-sm" title="Enviar recordatorio por WhatsApp">
+                            {/* BOTÓN MÁGICO DE WHATSAPP */}
+                            {(status.isExpired || status.isExpiringSoon) && (
+                              <a href={generateWhatsAppLink(student, status)} target="_blank" rel="noreferrer" className={`p-2.5 rounded-xl transition-colors flex items-center justify-center text-sm border ${status.isExpired ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/20' : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border-yellow-500/20'}`} title="Enviar recordatorio por WhatsApp">
                                 <MessageCircle className="w-4 h-4" />
                               </a>
                             )}
@@ -616,7 +642,6 @@ export default function TrainerDashboard() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
-            {/* NUEVO: Cabecera con botón de crear plantilla */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <p className="text-slate-400 text-sm">Crea entrenamientos base para asignarlos rápidamente a cualquier alumno.</p>
               <button 

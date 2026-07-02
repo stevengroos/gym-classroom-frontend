@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import API from './api';
 import { 
   Shield, Users, Dumbbell, Plus, X, 
-  LogOut, AlertTriangle, CheckCircle, Activity, Mail
+  LogOut, AlertTriangle, CheckCircle, Activity, Mail,
+  Eye, Wallet, Power, FileText, Calendar, Settings
 } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
@@ -14,12 +15,23 @@ export default function SuperAdminDashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [newTrainer, setNewTrainer] = useState({ email: '', full_name: '', password: '', role: 'trainer' });
   
+  // Modales y sub-pestañas
+  const [detailsModal, setDetailsModal] = useState({ 
+    isOpen: false, trainer: null, activeSubTab: 'students', students: [], routines: [], payments: [] 
+  });
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, trainer: null, amount: 0 });
+  const [isPaying, setIsPaying] = useState(false);
+
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const navigate = useNavigate();
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-PY', { style: 'decimal' }).format(amount || 0);
   };
 
   const fetchTrainers = async (showLoading = true) => {
@@ -67,25 +79,212 @@ export default function SuperAdminDashboard() {
       showToast("Entrenador creado con éxito", "success");
       fetchTrainers(false); 
     } catch (err) {
-      showToast(err.response?.data?.detail || "Error al crear entrenador", "error");
+      let errorMsg = "Error al crear entrenador";
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          errorMsg = err.response.data.detail[0].msg;
+        } else {
+          errorMsg = err.response.data.detail;
+        }
+      }
+      showToast(errorMsg, "error");
     } finally {
       setIsCreating(false);
     }
   };
 
-  // Métricas Globales
+  const handleViewDetails = async (trainer) => {
+    try {
+      // Descargamos tanto los detalles como los pagos en paralelo para máxima velocidad
+      const [detailsRes, paymentsRes] = await Promise.all([
+        API.get(`/users/trainers/${trainer.id}/details`),
+        API.get(`/users/trainers/${trainer.id}/payments`)
+      ]);
+
+      setDetailsModal({
+        isOpen: true,
+        trainer: trainer,
+        activeSubTab: 'students',
+        students: detailsRes.data.students,
+        routines: detailsRes.data.routines,
+        payments: paymentsRes.data
+      });
+    } catch (err) {
+      showToast("No se pudieron cargar los detalles", "error");
+    }
+  };
+
+  const handleToggleTrainer = async (id) => {
+    try {
+      await API.put(`/users/trainers/${id}/toggle`);
+      showToast("Estado actualizado correctamente", "success");
+      fetchTrainers(false); 
+    } catch (err) {
+      showToast("Error al actualizar el estado", "error");
+    }
+  };
+
+  const handleRegisterPayment = async (e) => {
+    e.preventDefault();
+    setIsPaying(true);
+    try {
+      const amountToSend = typeof paymentModal.amount === 'string' ? parseFloat(paymentModal.amount.replace(/\./g, '')) : paymentModal.amount;
+      await API.post(`/users/trainers/${paymentModal.trainer.id}/pay`, {
+        amount: amountToSend,
+        add_months: 1,
+        notes: "Licencia de Uso SaaS"
+      });
+      setPaymentModal({ isOpen: false, trainer: null, amount: 0 });
+      showToast("Licencia renovada con éxito", "success");
+      fetchTrainers(false);
+    } catch (err) {
+      showToast("Error al registrar el pago", "error");
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const getLicenseStatus = (expirationDate, isActive) => {
+    if (!isActive) return { label: 'Bloqueado', color: 'bg-slate-800 text-slate-400 border-slate-700' };
+    if (!expirationDate) return { label: 'Sin Licencia', color: 'bg-slate-700 text-slate-300 border-slate-600' };
+    
+    const today = new Date();
+    const expDate = new Date(expirationDate);
+    const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 0) return { label: 'Vencida', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+    if (daysLeft <= 5) return { label: 'Vence Pronto', color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' };
+    return { label: 'Licencia Activa', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' };
+  };
+
   const totalStudents = trainers.reduce((acc, trainer) => acc + trainer.student_count, 0);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans relative pb-10">
       
-      {/* TOAST NOTIFICATION */}
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all ${
           toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-slate-950'
         }`}>
           {toast.type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
           <span className="text-sm">{toast.message}</span>
+        </div>
+      )}
+
+      {/* MODAL DE AUDITORÍA AVANZADA CON PESTAÑA DE PAGOS */}
+      {detailsModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-amber-500" /> Historial y Control
+                </h3>
+                <p className="text-sm text-amber-500 font-semibold mt-1">{detailsModal.trainer.full_name}</p>
+              </div>
+              <button onClick={() => setDetailsModal({ ...detailsModal, isOpen: false })} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Selector de Sub-Pestañas en el modal */}
+            <div className="flex border-b border-slate-800 my-4 gap-4 text-xs font-bold uppercase tracking-wider overflow-x-auto hide-scrollbar">
+              <button onClick={() => setDetailsModal({...detailsModal, activeSubTab: 'students'})} className={`pb-2 whitespace-nowrap flex items-center gap-1.5 ${detailsModal.activeSubTab === 'students' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>
+                <Users className="w-4 h-4" /> Alumnos ({detailsModal.students.length})
+              </button>
+              <button onClick={() => setDetailsModal({...detailsModal, activeSubTab: 'routines'})} className={`pb-2 whitespace-nowrap flex items-center gap-1.5 ${detailsModal.activeSubTab === 'routines' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>
+                <FileText className="w-4 h-4" /> Planos/Plantillas ({detailsModal.routines.length})
+              </button>
+              <button onClick={() => setDetailsModal({...detailsModal, activeSubTab: 'payments'})} className={`pb-2 whitespace-nowrap flex items-center gap-1.5 ${detailsModal.activeSubTab === 'payments' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>
+                <Wallet className="w-4 h-4" /> Facturación SaaS ({detailsModal.payments.length})
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-4">
+              {detailsModal.activeSubTab === 'students' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {detailsModal.students.length === 0 ? <p className="text-sm text-slate-500 py-4">Este entrenador no tiene alumnos registrados aún.</p> : 
+                    detailsModal.students.map(s => (
+                      <div key={s.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-sm text-white">{s.full_name}</p>
+                          <p className="text-xs text-slate-500">{s.email}</p>
+                        </div>
+                        <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded ${s.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {s.is_active ? 'Activo' : 'Bloqueado'}
+                        </span>
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
+
+              {detailsModal.activeSubTab === 'routines' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {detailsModal.routines.length === 0 ? <p className="text-sm text-slate-500 py-4">No se registran rutinas en su biblioteca.</p> : 
+                    detailsModal.routines.map(r => (
+                      <div key={r.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
+                        <p className="font-bold text-sm text-white">{r.title}</p>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold">{r.day_of_week}</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
+
+              {/* NUEVA SECCIÓN VISUAL: Historial de cobros hechos al Entrenador */}
+              {detailsModal.activeSubTab === 'payments' && (
+                <div className="space-y-2 pt-1">
+                  {detailsModal.payments.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-6">Este entrenador no registra pagos de licencias aún.</p>
+                  ) : (
+                    detailsModal.payments.map((pay) => (
+                      <div key={pay.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-sm">
+                        <div>
+                          <p className="text-emerald-400 font-black">Gs. {formatCurrency(pay.amount)}</p>
+                          <p className="text-xs text-slate-500">{pay.notes || 'Abono de Licencia'}</p>
+                        </div>
+                        <span className="text-xs bg-slate-900 px-2 py-1.5 rounded text-slate-400 border border-slate-800 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-amber-500" /> {new Date(pay.payment_date).toLocaleDateString('es-ES')}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL COBRAR LICENCIA */}
+      {paymentModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-2">
+              <Wallet className="w-6 h-6 text-amber-500" /> Registrar Cobro de Licencia
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">Acreditar pago de 1 mes de uso a: <span className="text-amber-500 font-semibold">{paymentModal.trainer.full_name}</span></p>
+            <form onSubmit={handleRegisterPayment}>
+              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg overflow-hidden mb-6">
+                <span className="px-4 text-slate-400 font-bold">Gs.</span>
+                <input 
+                  type="text" 
+                  required 
+                  value={paymentModal.amount ? formatCurrency(paymentModal.amount) : ''} 
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\./g, '');
+                    if (!isNaN(val)) setPaymentModal({...paymentModal, amount: val})
+                  }} 
+                  className="w-full bg-transparent py-3 text-white outline-none" 
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setPaymentModal({ isOpen: false, trainer: null, amount: 0 })} className="flex-1 py-3 rounded-xl font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700">Cancelar</button>
+                <button type="submit" disabled={isPaying} className="flex-1 py-3 rounded-xl font-bold text-slate-950 bg-amber-500 hover:bg-amber-400">{isPaying ? '...' : 'Registrar Cobro'}</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -101,7 +300,6 @@ export default function SuperAdminDashboard() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <p className="text-sm text-slate-400 mb-6">Al crear esta cuenta, el entrenador podrá acceder a su propio panel y gestionar a sus propios alumnos.</p>
             <form onSubmit={handleCreateTrainer} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre Completo</label>
@@ -148,7 +346,7 @@ export default function SuperAdminDashboard() {
               <Activity className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-sm text-slate-400 font-bold uppercase tracking-wider">Entrenadores Activos</p>
+              <p className="text-sm text-slate-400 font-bold uppercase tracking-wider">Entrenadores Registrados</p>
               <h2 className="text-4xl font-black text-white">{trainers.length}</h2>
             </div>
           </div>
@@ -185,35 +383,54 @@ export default function SuperAdminDashboard() {
             Aún no tienes clientes. ¡Crea tu primer entrenador!
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {trainers.map((trainer) => (
-              <div key={trainer.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shadow-lg">
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-bold text-lg text-white">{trainer.full_name}</h3>
-                      <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-1">
-                        <Mail className="w-3.5 h-3.5" /> {trainer.email}
-                      </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {trainers.map((trainer) => {
+              const status = getLicenseStatus(trainer.expiration_date, trainer.is_active);
+              
+              return (
+                <div key={trainer.id} className={`bg-slate-900 border ${trainer.is_active ? 'border-slate-800' : 'border-slate-800/40 opacity-75'} rounded-2xl p-6 flex flex-col justify-between shadow-lg transition-all`}>
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-bold text-lg text-white">{trainer.full_name}</h3>
+                        <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-1">
+                          <Mail className="w-3.5 h-3.5" /> {trainer.email}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest border ${status.color}`}>
+                        {status.label}
+                      </span>
                     </div>
-                    <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest">
-                      Activo
-                    </span>
+                    
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex items-center justify-between mt-4">
+                      <span className="text-sm font-bold text-slate-400">Alumnos Gestionados:</span>
+                      <span className="text-xl font-black text-amber-500 flex items-center gap-1.5">
+                        {trainer.student_count} <Dumbbell className="w-4 h-4" />
+                      </span>
+                    </div>
+                    
+                    {trainer.expiration_date && (
+                      <p className="text-xs text-slate-500 mt-3 text-right">
+                        Vencimiento: {new Date(trainer.expiration_date).toLocaleDateString('es-ES')}
+                      </p>
+                    )}
                   </div>
                   
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex items-center justify-between mt-6">
-                    <span className="text-sm font-bold text-slate-400">Alumnos Gestionados:</span>
-                    <span className="text-xl font-black text-amber-500 flex items-center gap-1.5">
-                      {trainer.student_count} <Dumbbell className="w-4 h-4" />
-                    </span>
+                  {/* BOTONES DE ACCIÓN */}
+                  <div className="mt-6 pt-4 border-t border-slate-800/60 grid grid-cols-3 gap-2">
+                    <button onClick={() => handleViewDetails(trainer)} className="flex flex-col items-center justify-center gap-1 py-2 text-xs font-bold text-slate-300 bg-slate-950 hover:bg-slate-800 rounded-xl transition-colors border border-slate-800 shadow-sm">
+                      <Eye className="w-4 h-4" /> Auditar
+                    </button>
+                    <button onClick={() => setPaymentModal({ isOpen: true, trainer: trainer, amount: 0 })} className="flex flex-col items-center justify-center gap-1 py-2 text-xs font-black text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl transition-colors border border-amber-500/20 shadow-sm">
+                      <Wallet className="w-4 h-4" /> Cobrar
+                    </button>
+                    <button onClick={() => handleToggleTrainer(trainer.id)} className={`flex flex-col items-center justify-center gap-1 py-2 text-xs font-bold rounded-xl transition-colors border shadow-sm ${trainer.is_active ? 'text-red-400 bg-red-500/10 hover:bg-red-500/20 border-red-500/20' : 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20'}`}>
+                      <Power className="w-4 h-4" /> {trainer.is_active ? 'Bloquear' : 'Activar'}
+                    </button>
                   </div>
                 </div>
-                
-                <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500 font-medium text-center">
-                  Registrado el {new Date(trainer.created_at).toLocaleDateString('es-ES')}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

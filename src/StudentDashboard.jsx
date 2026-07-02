@@ -7,7 +7,7 @@ import {
   Play, CheckCircle, AlertTriangle, Settings, 
   LogOut, Coffee, ChevronDown, Trophy, 
   ArrowLeft, ArrowRight, X, Download,
-  List, TrendingUp, Plus, FileSpreadsheet
+  List, TrendingUp, Plus, FileSpreadsheet, Search
 } from 'lucide-react';
 
 // ================= COMPONENTES OPTIMIZADOS =================
@@ -94,12 +94,16 @@ export default function StudentDashboard() {
   const [userProfile, setUserProfile] = useState(null); 
   const [loading, setLoading] = useState(true);
   
-  // NUEVO: Estado para gestionar Pestañas
-  const [activeTab, setActiveTab] = useState('routines'); // 'routines' | 'progress'
+  const [activeTab, setActiveTab] = useState('routines'); 
 
-  // NUEVO: Estados para el Diario de Progreso Local
+  // Estados para el Diario de Progreso Local
   const [personalLogs, setPersonalLogs] = useState([]);
   const [newLog, setNewLog] = useState({ exercise: '', weight: '', reps: '' });
+  
+  // NUEVO: Estados de Búsqueda y Paginación para el Diario
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const LOGS_PER_PAGE = 10;
 
   const [activeRoutineId, setActiveRoutineId] = useState(null);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0); 
@@ -157,7 +161,6 @@ export default function StudentDashboard() {
       fetchData(true);
     }
 
-    // NUEVO: Cargar diario de progreso desde localStorage
     const savedLogs = localStorage.getItem('atletahub_personal_logs');
     if (savedLogs) {
       setPersonalLogs(JSON.parse(savedLogs));
@@ -176,6 +179,11 @@ export default function StudentDashboard() {
       if (wakeLockRef.current) wakeLockRef.current.release();
     };
   }, []);
+
+  // Reiniciar página al buscar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -228,26 +236,18 @@ export default function StudentDashboard() {
     localStorage.setItem('atletahub_personal_logs', JSON.stringify(updatedLogs));
   };
 
-  // Función Mágica para exportar a Excel (CSV)
   const exportToExcel = () => {
     if (personalLogs.length === 0) {
       return showToast("No hay registros para exportar.", "error");
     }
-
-    // Cabeceras del CSV
     let csvContent = "Fecha,Hora,Ejercicio,Peso Levantado (Kg/Lbs),Repeticiones\n";
-    
-    // Filas
     personalLogs.forEach(row => {
-      // Limpiamos las comas de los textos para no romper el CSV
       const safeExercise = row.exercise.replace(/,/g, '');
       csvContent += `${row.date},${row.time},${safeExercise},${row.weight},${row.reps}\n`;
     });
 
-    // Añadimos el BOM para que Excel lea los acentos (UTF-8) correctamente
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
     const link = document.createElement("a");
     link.href = url;
     link.setAttribute("download", `MiProgreso_AtletaHub_${new Date().getTime()}.csv`);
@@ -257,6 +257,16 @@ export default function StudentDashboard() {
     
     showToast("¡Excel generado exitosamente!", "success");
   };
+
+  // Lógica de filtrado y paginación
+  const filteredLogs = personalLogs.filter(log => 
+    log.exercise.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  const indexOfLastLog = currentPage * LOGS_PER_PAGE;
+  const indexOfFirstLog = indexOfLastLog - LOGS_PER_PAGE;
+  const currentLogs = filteredLogs.slice(indexOfFirstLog, indexOfLastLog);
+  const totalPages = Math.ceil(filteredLogs.length / LOGS_PER_PAGE);
 
   // ================= LÓGICA DE RUTINAS =================
 
@@ -304,11 +314,45 @@ export default function StudentDashboard() {
 
   const submitWorkout = async () => {
     try {
+      // 1. Enviamos el registro al backend para el profesor
       await API.post(`/routines/${activeRoutineId}/log`, {
         feedback: feedback,
         weights: weights
       });
-      showToast("¡Entrenamiento guardado! Tu profe recibirá las notas.", "success");
+
+      // 2. NUEVO: SINCRONIZACIÓN AUTOMÁTICA CON DIARIO LOCAL
+      const activeRoutine = routines.find(r => r.id === activeRoutineId);
+      if (activeRoutine && Object.keys(weights).length > 0) {
+        const newEntries = [];
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+        Object.keys(weights).forEach(indexStr => {
+          const index = parseInt(indexStr);
+          const weightVal = weights[index];
+          const exercise = activeRoutine.exercises[index];
+
+          if (weightVal && exercise) {
+            newEntries.push({
+              id: Date.now() + index, // IDs únicos
+              date: dateStr,
+              time: timeStr,
+              exercise: exercise.name,
+              weight: weightVal,
+              reps: exercise.reps || '-'
+            });
+          }
+        });
+
+        if (newEntries.length > 0) {
+          const updatedLogs = [...newEntries, ...personalLogs];
+          setPersonalLogs(updatedLogs);
+          localStorage.setItem('atletahub_personal_logs', JSON.stringify(updatedLogs));
+        }
+      }
+
+      showToast("¡Entrenamiento guardado con éxito!", "success");
       setActiveRoutineId(null);
       setFeedback('');
       setWeights({});
@@ -603,11 +647,10 @@ export default function StudentDashboard() {
           )
         )}
 
-        {/* PESTAÑA 2: DIARIO DE PROGRESO (NUEVO) */}
+        {/* PESTAÑA 2: DIARIO DE PROGRESO */}
         {activeTab === 'progress' && (
           <div className="animate-fade-in space-y-6">
             
-            {/* Cabecera y Botón Exportar */}
             <div className="flex justify-between items-center px-1">
               <div>
                 <h2 className="text-white font-bold text-lg">Diario Personal</h2>
@@ -621,7 +664,6 @@ export default function StudentDashboard() {
               </button>
             </div>
 
-            {/* Formulario de Ingreso Rápido */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
               <h3 className="text-sm font-bold text-amber-500 uppercase tracking-wider mb-3">Añadir Registro</h3>
               <form onSubmit={handleSavePersonalLog} className="space-y-3">
@@ -643,25 +685,37 @@ export default function StudentDashboard() {
               </form>
             </div>
 
-            {/* Lista Histórica */}
+            {/* NUEVO: Buscador */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Buscar por ejercicio (ej: Sentadilla)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-amber-500 text-white transition-colors"
+              />
+            </div>
+
+            {/* Lista Histórica con Paginación */}
             <div className="space-y-3">
-              {personalLogs.length === 0 ? (
+              {currentLogs.length === 0 ? (
                 <div className="text-center py-6 text-slate-500 border border-slate-800 border-dashed rounded-xl bg-slate-900/50">
-                  Aún no tienes registros guardados.
+                  {searchTerm ? 'No hay registros con ese nombre.' : 'Aún no tienes registros guardados.'}
                 </div>
               ) : (
-                personalLogs.map(log => (
+                currentLogs.map(log => (
                   <div key={log.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex justify-between items-center relative group">
                     <button onClick={() => handleDeletePersonalLog(log.id)} className="absolute top-2 right-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                       <X className="w-4 h-4" />
                     </button>
                     <div>
-                      <p className="font-bold text-white text-sm">{log.exercise}</p>
+                      <p className="font-bold text-white text-sm pr-6">{log.exercise}</p>
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                         {log.date} a las {log.time}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right whitespace-nowrap">
                       <span className="block text-amber-500 font-black text-lg">{log.weight}</span>
                       <span className="text-[10px] uppercase font-bold text-slate-400">({log.reps} Reps)</span>
                     </div>
@@ -669,6 +723,29 @@ export default function StudentDashboard() {
                 ))
               )}
             </div>
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6 gap-2">
+                <button 
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                  disabled={currentPage === 1} 
+                  className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-50 text-xs font-bold"
+                >
+                  Anterior
+                </button>
+                <span className="px-3 py-1.5 text-slate-400 text-xs font-medium flex items-center">
+                  {currentPage} de {totalPages}
+                </span>
+                <button 
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} 
+                  disabled={currentPage === totalPages} 
+                  className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-50 text-xs font-bold"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
 
           </div>
         )}

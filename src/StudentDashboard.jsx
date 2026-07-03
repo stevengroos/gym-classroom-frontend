@@ -10,8 +10,6 @@ import {
   List, TrendingUp, Plus, FileSpreadsheet, Search
 } from 'lucide-react';
 
-// ================= COMPONENTES OPTIMIZADOS =================
-
 const LazyYouTube = ({ rawUrl }) => {
   const [showVideo, setShowVideo] = useState(false);
   
@@ -87,8 +85,6 @@ const ExerciseTimer = ({ restTimeStr }) => {
   );
 };
 
-// ================= COMPONENTE PRINCIPAL =================
-
 export default function StudentDashboard() {
   const [routines, setRoutines] = useState([]);
   const [userProfile, setUserProfile] = useState(null); 
@@ -96,11 +92,9 @@ export default function StudentDashboard() {
   
   const [activeTab, setActiveTab] = useState('routines'); 
 
-  // Estados para el Diario de Progreso Local
   const [personalLogs, setPersonalLogs] = useState([]);
   const [newLog, setNewLog] = useState({ exercise: '', weight: '', reps: '' });
   
-  // NUEVO: Estados de Búsqueda y Paginación para el Diario
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const LOGS_PER_PAGE = 10;
@@ -131,15 +125,20 @@ export default function StudentDashboard() {
   const fetchData = async (showLoadingIndicator = true) => {
     if (showLoadingIndicator) setLoading(true);
     try {
-      const [routinesRes, profileRes] = await Promise.all([
+      // CORRECCIÓN: Pedimos también el historial real a la base de datos
+      const [routinesRes, profileRes, logsRes] = await Promise.all([
         API.get('/routines/me'),
-        API.get('/users/me/profile')
+        API.get('/users/me/profile'),
+        API.get('/routines/my-logs')
       ]);
+      
       setRoutines(routinesRes.data);
       setUserProfile(profileRes.data);
+      setPersonalLogs(logsRes.data || []);
 
       sessionStorage.setItem('student_routines', JSON.stringify(routinesRes.data));
       sessionStorage.setItem('student_profile', JSON.stringify(profileRes.data));
+      localStorage.setItem('atletahub_personal_logs', JSON.stringify(logsRes.data || []));
 
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
@@ -151,19 +150,16 @@ export default function StudentDashboard() {
   useEffect(() => {
     const cachedRoutines = sessionStorage.getItem('student_routines');
     const cachedProfile = sessionStorage.getItem('student_profile');
+    const savedLogs = localStorage.getItem('atletahub_personal_logs');
 
     if (cachedRoutines && cachedProfile) {
       setRoutines(JSON.parse(cachedRoutines));
       setUserProfile(JSON.parse(cachedProfile));
+      if (savedLogs) setPersonalLogs(JSON.parse(savedLogs));
       setLoading(false);
       fetchData(false);
     } else {
       fetchData(true);
-    }
-
-    const savedLogs = localStorage.getItem('atletahub_personal_logs');
-    if (savedLogs) {
-      setPersonalLogs(JSON.parse(savedLogs));
     }
 
     const requestWakeLock = async () => {
@@ -180,7 +176,6 @@ export default function StudentDashboard() {
     };
   }, []);
 
-  // Reiniciar página al buscar
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
@@ -207,8 +202,6 @@ export default function StudentDashboard() {
     }
   };
 
-  // ================= LÓGICA DEL DIARIO DE PROGRESO =================
-
   const handleSavePersonalLog = (e) => {
     e.preventDefault();
     if (!newLog.exercise || !newLog.weight) return;
@@ -227,7 +220,7 @@ export default function StudentDashboard() {
     localStorage.setItem('atletahub_personal_logs', JSON.stringify(updatedLogs));
     
     setNewLog({ exercise: '', weight: '', reps: '' });
-    showToast("¡Registro guardado localmente!", "success");
+    showToast("¡Registro guardado exitosamente!", "success");
   };
 
   const handleDeletePersonalLog = (id) => {
@@ -258,7 +251,6 @@ export default function StudentDashboard() {
     showToast("¡Excel generado exitosamente!", "success");
   };
 
-  // Lógica de filtrado y paginación
   const filteredLogs = personalLogs.filter(log => 
     log.exercise.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -267,8 +259,6 @@ export default function StudentDashboard() {
   const indexOfFirstLog = indexOfLastLog - LOGS_PER_PAGE;
   const currentLogs = filteredLogs.slice(indexOfFirstLog, indexOfLastLog);
   const totalPages = Math.ceil(filteredLogs.length / LOGS_PER_PAGE);
-
-  // ================= LÓGICA DE RUTINAS =================
 
   const toggleRoutine = async (id) => {
     if (activeRoutineId === id) {
@@ -314,43 +304,13 @@ export default function StudentDashboard() {
 
   const submitWorkout = async () => {
     try {
-      // 1. Enviamos el registro al backend para el profesor
       await API.post(`/routines/${activeRoutineId}/log`, {
         feedback: feedback,
         weights: weights
       });
 
-      // 2. NUEVO: SINCRONIZACIÓN AUTOMÁTICA CON DIARIO LOCAL
-      const activeRoutine = routines.find(r => r.id === activeRoutineId);
-      if (activeRoutine && Object.keys(weights).length > 0) {
-        const newEntries = [];
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-
-        Object.keys(weights).forEach(indexStr => {
-          const index = parseInt(indexStr);
-          const weightVal = weights[index];
-          const exercise = activeRoutine.exercises[index];
-
-          if (weightVal && exercise) {
-            newEntries.push({
-              id: Date.now() + index, // IDs únicos
-              date: dateStr,
-              time: timeStr,
-              exercise: exercise.name,
-              weight: weightVal,
-              reps: exercise.reps || '-'
-            });
-          }
-        });
-
-        if (newEntries.length > 0) {
-          const updatedLogs = [...newEntries, ...personalLogs];
-          setPersonalLogs(updatedLogs);
-          localStorage.setItem('atletahub_personal_logs', JSON.stringify(updatedLogs));
-        }
-      }
+      // Refrescamos en segundo plano todo el historial desde la base de datos
+      fetchData(false);
 
       showToast("¡Entrenamiento guardado con éxito!", "success");
       setActiveRoutineId(null);
@@ -499,7 +459,6 @@ export default function StudentDashboard() {
 
       <main className="max-w-md mx-auto p-4 mt-2 mb-10">
         
-        {/* PESTAÑAS DEL ALUMNO */}
         <div className="flex border-b border-slate-800 mb-6 pb-1">
           <button 
             onClick={() => setActiveTab('routines')} 
@@ -515,7 +474,6 @@ export default function StudentDashboard() {
           </button>
         </div>
 
-        {/* PESTAÑA 1: PLAN GUIADO */}
         {activeTab === 'routines' && (
           loading ? (
             <div className="flex justify-center py-10"><p className="text-amber-500 font-medium animate-pulse">Cargando tu plan...</p></div>
@@ -647,7 +605,6 @@ export default function StudentDashboard() {
           )
         )}
 
-        {/* PESTAÑA 2: DIARIO DE PROGRESO */}
         {activeTab === 'progress' && (
           <div className="animate-fade-in space-y-6">
             
@@ -685,7 +642,6 @@ export default function StudentDashboard() {
               </form>
             </div>
 
-            {/* NUEVO: Buscador */}
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
@@ -697,7 +653,6 @@ export default function StudentDashboard() {
               />
             </div>
 
-            {/* Lista Histórica con Paginación */}
             <div className="space-y-3">
               {currentLogs.length === 0 ? (
                 <div className="text-center py-6 text-slate-500 border border-slate-800 border-dashed rounded-xl bg-slate-900/50">
@@ -724,7 +679,6 @@ export default function StudentDashboard() {
               )}
             </div>
 
-            {/* Paginación */}
             {totalPages > 1 && (
               <div className="flex justify-center mt-6 gap-2">
                 <button 

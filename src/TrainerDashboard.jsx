@@ -22,14 +22,12 @@ export default function TrainerDashboard() {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  // NUEVO: Agregamos el campo phone al estado inicial
   const [newStudent, setNewStudent] = useState({ email: '', full_name: '', phone: '', password: '', role: 'student' });
   
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, student: null, amount: 0 });
   const [isPaying, setIsPaying] = useState(false);
 
   const [manageModal, setManageModal] = useState({ isOpen: false, student: null, activeSubTab: 'edit', history: [] });
-  // NUEVO: Agregamos el campo phone a los campos de edición
   const [editFields, setEditFields] = useState({ is_active: true, expiration_date: '', default_price: 0, phone: '' });
   const [isSavingManagement, setIsSavingManagement] = useState(false);
 
@@ -105,8 +103,15 @@ export default function TrainerDashboard() {
   const handleCreateStudent = async (e) => {
     e.preventDefault();
     setIsCreating(true);
+
+    // SANITIZACIÓN: Limpiamos espacios y convertimos el correo estrictamente a minúsculas
+    const sanitizedStudent = {
+      ...newStudent,
+      email: newStudent.email.trim().toLowerCase()
+    };
+
     try {
-      await API.post('/users/students', newStudent);
+      await API.post('/users/students', sanitizedStudent);
       setNewStudent({ email: '', full_name: '', phone: '', password: '', role: 'student' }); 
       setIsCreateModalOpen(false);
       showToast("Atleta creado con éxito", "success");
@@ -127,7 +132,7 @@ export default function TrainerDashboard() {
       is_active: student.is_active,
       expiration_date: formattedDate,
       default_price: student.default_price || 0,
-      phone: student.phone || '' // Cargamos el teléfono actual
+      phone: student.phone || '' 
     });
 
     try {
@@ -146,7 +151,7 @@ export default function TrainerDashboard() {
         is_active: editFields.is_active,
         expiration_date: editFields.expiration_date ? `${editFields.expiration_date}T23:59:59Z` : null,
         default_price: parseFloat(editFields.default_price),
-        phone: editFields.phone // Enviamos el teléfono modificado
+        phone: editFields.phone 
       });
       setManageModal({ isOpen: false, student: null, activeSubTab: 'edit', history: [] });
       showToast("Datos actualizados con éxito", "success");
@@ -241,9 +246,7 @@ export default function TrainerDashboard() {
     return { label: 'Al día', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', isExpired: false, isExpiringSoon: false, dateStr: formattedDate };
   };
 
-  // NUEVO: Generador Inteligente de Link de WhatsApp
   const generateWhatsAppLink = (student, status) => {
-    // Si no hay teléfono registrado, intentamos buscarlo por nombre de contacto general (Fallback)
     const baseLink = student.phone ? `https://wa.me/${student.phone.replace(/\D/g, '')}` : `https://wa.me/`;
     
     let text = '';
@@ -371,7 +374,6 @@ export default function TrainerDashboard() {
                 <input type="email" required value={newStudent.email} onChange={(e) => setNewStudent({...newStudent, email: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500 transition-colors" />
               </div>
               <div>
-                {/* NUEVO CAMPO: WhatsApp */}
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">WhatsApp (Con código de país, ej: 595981...)</label>
                 <input type="text" placeholder="Opcional" value={newStudent.phone} onChange={(e) => setNewStudent({...newStudent, phone: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-amber-500 transition-colors" />
               </div>
@@ -425,7 +427,6 @@ export default function TrainerDashboard() {
                     <input type="text" placeholder="Con código de país (ej: 595981...)" value={editFields.phone} onChange={(e) => setEditFields({...editFields, phone: e.target.value.replace(/\D/g,'')})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white outline-none" />
                   </div>
                   
-                  {/* SOLUCIÓN RESPONSIVA: 1 columna en móvil, 2 en PC. Y alineación perfecta abajo */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col justify-end">
                       <label className="block text-xs text-slate-400 uppercase font-black mb-1">Vencimiento Manual</label>
@@ -618,7 +619,6 @@ export default function TrainerDashboard() {
                             <button disabled={!student.is_active} onClick={() => setPaymentModal({ isOpen: true, student: student, amount: student.default_price || 0 })} className="flex-1 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-30 text-amber-500 border border-amber-500/20 text-xs font-black py-2.5 rounded-xl transition-colors flex justify-center items-center gap-1.5">
                               <Wallet className="w-4 h-4" /> Cobrar
                             </button>
-                            {/* BOTÓN MÁGICO DE WHATSAPP */}
                             {(status.isExpired || status.isExpiringSoon) && (
                               <a href={generateWhatsAppLink(student, status)} target="_blank" rel="noreferrer" className={`p-2.5 rounded-xl transition-colors flex items-center justify-center text-sm border ${status.isExpired ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/20' : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border-yellow-500/20'}`} title="Enviar recordatorio por WhatsApp">
                                 <MessageCircle className="w-4 h-4" />

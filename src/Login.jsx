@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from './api';
-// NUEVO: Importamos los íconos de Lucide
 import { AlertTriangle, Dumbbell, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -13,12 +12,9 @@ export default function Login() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
   const navigate = useNavigate();
 
-  // Efecto de Auto-Login y Limpieza de Caché
   useEffect(() => {
-    // 1. Limpieza estricta: Si el usuario llegó a la pantalla de Login, limpiamos cualquier caché residual
     sessionStorage.clear();
 
-    // 2. Auto-Login: Si ya tiene un token guardado, lo mandamos directo a su panel
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
 
@@ -42,7 +38,10 @@ export default function Login() {
     e.preventDefault();
     setLoading(false);
 
-    if (!email || !password) {
+    // SANITIZACIÓN: Eliminamos espacios accidentales al inicio/final y convertimos a minúsculas
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
       showToast('Por favor, rellena todos los campos.', 'error');
       return;
     }
@@ -51,7 +50,8 @@ export default function Login() {
 
     try {
       const formData = new URLSearchParams();
-      formData.append('username', email);
+      // Enviamos el correo 100% limpio y estandarizado al servidor
+      formData.append('username', cleanEmail);
       formData.append('password', password);
 
       const response = await API.post('/auth/login', formData, {
@@ -82,7 +82,6 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 relative overflow-hidden">
       
-      {/* TOAST NOTIFICATION CON LUCIDE */}
       {toast.show && (
         <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-fade-in-up transition-all bg-red-500 text-white">
           <AlertTriangle className="w-5 h-5" />
@@ -90,12 +89,10 @@ export default function Login() {
         </div>
       )}
 
-      {/* EFECTOS DE LUZ DE FONDO */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 sm:p-10 shadow-2xl relative z-10">
         
-        {/* Encabezado */}
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
             <Dumbbell className="w-8 h-8 text-amber-500" />
@@ -104,7 +101,6 @@ export default function Login() {
           <p className="text-slate-400 mt-2 text-sm font-medium">Entra a tu zona de entrenamiento</p>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Correo Electrónico</label>

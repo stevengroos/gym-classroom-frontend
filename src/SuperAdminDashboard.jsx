@@ -15,7 +15,6 @@ export default function SuperAdminDashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [newTrainer, setNewTrainer] = useState({ email: '', full_name: '', password: '', role: 'trainer' });
   
-  // Modales y sub-pestañas
   const [detailsModal, setDetailsModal] = useState({ 
     isOpen: false, trainer: null, activeSubTab: 'students', students: [], routines: [], payments: [] 
   });
@@ -72,8 +71,15 @@ export default function SuperAdminDashboard() {
   const handleCreateTrainer = async (e) => {
     e.preventDefault();
     setIsCreating(true);
+
+    // SANITIZACIÓN: Limpiamos espacios y pasamos el correo estrictamente a minúsculas
+    const sanitizedTrainer = {
+      ...newTrainer,
+      email: newTrainer.email.trim().toLowerCase()
+    };
+
     try {
-      await API.post('/users/trainers', newTrainer);
+      await API.post('/users/trainers', sanitizedTrainer);
       setNewTrainer({ email: '', full_name: '', password: '', role: 'trainer' });
       setIsCreateModalOpen(false);
       showToast("Entrenador creado con éxito", "success");
@@ -95,7 +101,6 @@ export default function SuperAdminDashboard() {
 
   const handleViewDetails = async (trainer) => {
     try {
-      // Descargamos tanto los detalles como los pagos en paralelo para máxima velocidad
       const [detailsRes, paymentsRes] = await Promise.all([
         API.get(`/users/trainers/${trainer.id}/details`),
         API.get(`/users/trainers/${trainer.id}/payments`)
@@ -171,7 +176,6 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* MODAL DE AUDITORÍA AVANZADA CON PESTAÑA DE PAGOS */}
       {detailsModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
@@ -187,7 +191,6 @@ export default function SuperAdminDashboard() {
               </button>
             </div>
 
-            {/* Selector de Sub-Pestañas en el modal */}
             <div className="flex border-b border-slate-800 my-4 gap-4 text-xs font-bold uppercase tracking-wider overflow-x-auto hide-scrollbar">
               <button onClick={() => setDetailsModal({...detailsModal, activeSubTab: 'students'})} className={`pb-2 whitespace-nowrap flex items-center gap-1.5 ${detailsModal.activeSubTab === 'students' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-400'}`}>
                 <Users className="w-4 h-4" /> Alumnos ({detailsModal.students.length})
@@ -232,7 +235,6 @@ export default function SuperAdminDashboard() {
                 </div>
               )}
 
-              {/* NUEVA SECCIÓN VISUAL: Historial de cobros hechos al Entrenador */}
               {detailsModal.activeSubTab === 'payments' && (
                 <div className="space-y-2 pt-1">
                   {detailsModal.payments.length === 0 ? (
@@ -257,7 +259,6 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* MODAL COBRAR LICENCIA */}
       {paymentModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
@@ -288,7 +289,6 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* MODAL CREAR ENTRENADOR */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up">
@@ -321,7 +321,6 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* NAVBAR */}
       <nav className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-3">
           <div className="bg-amber-500 text-slate-950 p-2 rounded-lg">
@@ -339,7 +338,6 @@ export default function SuperAdminDashboard() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 mt-4">
         
-        {/* PANEL DE MÉTRICAS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex items-center gap-4">
             <div className="bg-blue-500/10 p-4 rounded-xl text-blue-500">
@@ -361,7 +359,6 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
 
-        {/* CABECERA DE LA LISTA */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Shield className="w-5 h-5 text-amber-500" /> Gestión de Clientes (Entrenadores)
@@ -374,7 +371,6 @@ export default function SuperAdminDashboard() {
           </button>
         </div>
 
-        {/* LISTADO DE ENTRENADORES */}
         {loading ? (
           <p className="text-slate-500 py-10 text-center animate-pulse">Analizando base de datos central...</p>
         ) : trainers.length === 0 ? (
@@ -416,7 +412,6 @@ export default function SuperAdminDashboard() {
                     )}
                   </div>
                   
-                  {/* BOTONES DE ACCIÓN */}
                   <div className="mt-6 pt-4 border-t border-slate-800/60 grid grid-cols-3 gap-2">
                     <button onClick={() => handleViewDetails(trainer)} className="flex flex-col items-center justify-center gap-1 py-2 text-xs font-bold text-slate-300 bg-slate-950 hover:bg-slate-800 rounded-xl transition-colors border border-slate-800 shadow-sm">
                       <Eye className="w-4 h-4" /> Auditar

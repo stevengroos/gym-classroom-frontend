@@ -322,7 +322,7 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleDownloadPDF = () => {
+const handleDownloadPDF = () => {
     try {
       const doc = new jsPDF();
       
@@ -350,7 +350,7 @@ export default function StudentDashboard() {
             ex.sets, 
             ex.reps, 
             ex.rest_time || '-', 
-            ex.youtube_url || '-',
+            ex.youtube_url ? 'Ver Video' : '-', // <-- TEXTO LIMPIO Y PROFESIONAL
             ex.notes || ''
           ]);
         });
@@ -363,9 +363,19 @@ export default function StudentDashboard() {
           headStyles: { fillColor: [245, 158, 11], textColor: [15, 23, 42] },
           styles: { fontSize: 8, overflow: 'linebreak' }, 
           columnStyles: { 
-            4: { cellWidth: 40, textColor: [37, 99, 235] }, 
+            4: { cellWidth: 25, textColor: [37, 99, 235], fontStyle: 'bold', halign: 'center' }, // Azul y centrado
             5: { cellWidth: 40 } 
-          } 
+          },
+          // LA MAGIA: Esto detecta la celda del video y le pega un link real
+          didDrawCell: (data) => {
+            if (data.section === 'body' && data.column.index === 4) {
+              const exercise = routine.exercises[data.row.index];
+              if (exercise && exercise.youtube_url) {
+                // doc.link crea el área interactiva transparente en el PDF
+                doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: exercise.youtube_url });
+              }
+            }
+          }
         });
 
         startY = doc.lastAutoTable.finalY + 15;

@@ -92,11 +92,11 @@ export default function StudentRoutines() {
     });
   };
 
-  // ================= EXPORTACIÓN A PDF =================
+// ================= EXPORTACIÓN A PDF (VERSIÓN CON LINKS CLICKEABLES) =================
   const handleDownloadPDF = () => {
-    if (routines.length === 0) {
-      return showToast("Este alumno no tiene rutinas asignadas para exportar.", "error");
-    }
+    // Solo en StudentRoutines necesitas verificar: if (routines.length === 0) return...
+    // (Asegúrate de dejar la validación inicial si la tenías)
+
     try {
       const doc = new jsPDF();
       
@@ -106,7 +106,10 @@ export default function StudentRoutines() {
       
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139); 
-      doc.text(`Plan de Entrenamiento - Atleta: ${studentName}`, 14, 30);
+      // Si estás en StudentDashboard, la variable es userProfile?.full_name
+      // Si estás en StudentRoutines, la variable es studentName
+      const athleteName = typeof studentName !== 'undefined' ? studentName : (userProfile?.full_name || 'Alumno');
+      doc.text(`Plan de Entrenamiento - Atleta: ${athleteName}`, 14, 30);
 
       let startY = 40;
 
@@ -124,7 +127,7 @@ export default function StudentRoutines() {
             ex.sets, 
             ex.reps, 
             ex.rest_time || '-', 
-            ex.youtube_url || '-',
+            ex.youtube_url ? 'Ver Video' : '-', // <-- Cambiamos la URL fea por un texto limpio
             ex.notes || ''
           ]);
         });
@@ -137,9 +140,21 @@ export default function StudentRoutines() {
           headStyles: { fillColor: [245, 158, 11], textColor: [15, 23, 42] },
           styles: { fontSize: 8, overflow: 'linebreak' }, 
           columnStyles: { 
-            4: { cellWidth: 40, textColor: [37, 99, 235] }, 
+            // Le damos color azul y negrita a la columna de videos
+            4: { cellWidth: 25, textColor: [37, 99, 235], fontStyle: 'bold', halign: 'center' }, 
             5: { cellWidth: 40 } 
-          } 
+          },
+          // LA MAGIA: Hook que se ejecuta al dibujar cada celda
+          didDrawCell: (data) => {
+            // Si estamos dibujando el cuerpo de la tabla y es la columna de Video (índice 4)
+            if (data.section === 'body' && data.column.index === 4) {
+              const exercise = routine.exercises[data.row.index];
+              if (exercise && exercise.youtube_url) {
+                // Creamos un rectángulo invisible y clickeable exactamente del tamaño de la celda
+                doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: exercise.youtube_url });
+              }
+            }
+          }
         });
 
         startY = doc.lastAutoTable.finalY + 15;
@@ -150,12 +165,13 @@ export default function StudentRoutines() {
         }
       });
 
-      const fileName = `Plan_Entrenamiento_${studentName.replace(/\s+/g, '_')}.pdf`;
+      const fileName = `Plan_Entrenamiento_${athleteName.replace(/\s+/g, '_')}.pdf`;
       doc.save(fileName);
-      showToast("PDF de rutinas descargado con éxito.", "success");
+      showToast("PDF descargado. ¡Revisa tus archivos!", "success");
 
     } catch (error) {
       showToast("Error al generar el PDF.", "error");
+      console.error(error);
     }
   };
 

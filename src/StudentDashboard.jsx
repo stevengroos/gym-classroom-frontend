@@ -18,6 +18,8 @@ const LazyYouTube = ({ rawUrl }) => {
     try {
       if (url.includes('youtu.be/')) return url.split('youtu.be/')[1].split('?')[0];
       if (url.includes('youtube.com/watch?v=')) return url.split('watch?v=')[1].split('&')[0];
+      // NUEVA REGLA: Para aceptar links de YouTube Shorts
+      if (url.includes('youtube.com/shorts/')) return url.split('shorts/')[1].split('?')[0];
     } catch (e) { return null; }
     return null;
   };
